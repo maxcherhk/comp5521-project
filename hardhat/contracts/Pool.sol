@@ -248,6 +248,16 @@ contract Pool is LPToken, ReentrancyGuard {
         );
     }
 
+    function previewWithdraw(uint256 lpAmount) public view returns (uint256 amount0, uint256 amount1) {
+        require(lpAmount > 0, "Amount must be greater than 0");
+        
+        uint256 totalLP = totalSupply();
+        amount0 = (lpAmount * tokenBalances[i_token0_address]) / totalLP;
+        amount1 = (lpAmount * tokenBalances[i_token1_address]) / totalLP;
+        
+        return (amount0, amount1);
+    }
+    
     function getReserves() public view returns (uint256 reserve0, uint256 reserve1) {
         reserve0 = tokenBalances[i_token0_address];
         reserve1 = tokenBalances[i_token1_address];
