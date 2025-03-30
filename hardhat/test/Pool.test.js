@@ -173,7 +173,7 @@ describe("Pool Contract", function () {
 
     it("should calculate correct output for Token0 to Token1", async function () {
       const amountIn = ethers.parseEther("100");
-      const amountOut = await pool.getAmountOut(token0.getAddress(), amountIn, token1.getAddress());
+      const [amountOut, feeAmount] = await pool.getAmountOut(token0.getAddress(), amountIn, token1.getAddress());
       expect(amountOut).to.equal(ethers.parseEther("100")); // (200 * 100) / (100 + 100)
     });
 
@@ -182,7 +182,7 @@ describe("Pool Contract", function () {
       await pool.connect(user).swap(token0.getAddress(), ethers.parseEther("100"), token1.getAddress());
 
       const amountIn = ethers.parseEther("50");
-      const amountOut = await pool.getAmountOut(token1.getAddress(), amountIn, token0.getAddress());
+      const [amountOut, feeAmount] = await pool.getAmountOut(token1.getAddress(), amountIn, token0.getAddress());
       const expected = amountIn * 200n / (100n + 50n); // (200 * 50) / 150 ≈ 66.666...
       expect(amountOut).to.equal(expected);
     });
@@ -242,7 +242,7 @@ describe("Pool Contract", function () {
 
     it("should calculate output accounting for fees", async function () {
       const amountIn = ethers.parseEther("100");
-      const amountOut = await pool.getAmountOut(token0.getAddress(), amountIn, token1.getAddress());
+      const [amountOut, feeAmount] = await pool.getAmountOut(token0.getAddress(), amountIn, token1.getAddress());
       
       // Fee-adjusted calculation: 
       // amountInWithFee = 100 * (10000 - 30) / 10000 = 99.7 ETH
@@ -250,8 +250,9 @@ describe("Pool Contract", function () {
       const expectedAmountInWithFee = amountIn * (10000n - 30n) / 10000n;
       const expectedAmountOut = ethers.parseEther("200") * expectedAmountInWithFee / 
                                (ethers.parseEther("100") + expectedAmountInWithFee);
-      
+      const expectedFeeAmount = amountIn - expectedAmountInWithFee;
       expect(amountOut).to.equal(expectedAmountOut);
+      expect(feeAmount).to.equal(expectedFeeAmount);
     });
   });
 
