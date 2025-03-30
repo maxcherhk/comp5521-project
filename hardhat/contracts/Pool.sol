@@ -14,6 +14,10 @@ contract Pool is LPToken, ReentrancyGuard {
 
     uint256 constant INITIAL_RATIO = 2; //token0:token1 = 1:2
 
+    // Fee is in basis points (10000 = 100%)
+    uint256 public feeRate = 0; // 0% fee by default
+    address public feeAdmin;
+
     mapping(address => uint256) tokenBalances;
 
     event AddedLiquidity(
@@ -37,6 +41,8 @@ contract Pool is LPToken, ReentrancyGuard {
 
         i_token0_address = token0;
         i_token1_address = token1;
+
+         feeAdmin = msg.sender; // Set deployer as fee admin
     }
 
     function getAmountOut(
@@ -46,7 +52,12 @@ contract Pool is LPToken, ReentrancyGuard {
     ) public view returns (uint256) {
         uint256 balanceOut = tokenBalances[tokenOut];
         uint256 balanceIn = tokenBalances[tokenIn];
-        uint256 amountOut = (balanceOut * amountIn) / (balanceIn + amountIn);
+
+        // Apply fee to the input amount
+        uint256 amountInWithFee = amountIn * (10000 - feeRate) / 10000;
+        
+        // Calculate output amount with the reduced input (after fee)
+        uint256 amountOut = (balanceOut * amountInWithFee) / (balanceIn + amountInWithFee);
 
         return amountOut;
     }
@@ -188,4 +199,25 @@ contract Pool is LPToken, ReentrancyGuard {
         address token1,
         uint256 indexed amount1
     );
+
+    // Update fee rate (only fee admin can call)
+    function setFeeRate(uint256 _feeRate) external {
+        require(msg.sender == feeAdmin, "Only fee admin can update fee rate");
+        require(_feeRate <= 100, "Fee rate cannot exceed 1%"); // Max 1% fee as safety measure
+        feeRate = _feeRate;
+        emit FeeRateUpdated(_feeRate);
+    }
+    
+    // Transfer fee admin role to a new address
+    function setFeeAdmin(address _newAdmin) external {
+        require(msg.sender == feeAdmin, "Only fee admin can transfer role");
+        require(_newAdmin != address(0), "New admin cannot be zero address");
+        feeAdmin = _newAdmin;
+        emit FeeAdminUpdated(_newAdmin);
+    }
+    
+    // Add new events
+    event FeeRateUpdated(uint256 newFeeRate);
+    event FeeAdminUpdated(address newFeeAdmin);
+
 }
