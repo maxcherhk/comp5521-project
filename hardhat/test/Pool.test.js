@@ -11,7 +11,7 @@ describe("Pool Contract", function () {
   before(async function () {
 
     // Deploy two tokens
-    NewToken = await hre.ethers.getContractFactory("NewToken");
+    const NewToken = await hre.ethers.getContractFactory("NewToken");
     
     // Deploy Alpha
     token0 = await NewToken.deploy("Alpha", "ALPHA");
@@ -230,7 +230,7 @@ describe("Pool Contract", function () {
         .to.be.revertedWith("Amount must be greater than 0");
     });
   });
-  
+
   describe("Fee management", function () {
     it("should initialize with deployer as fee admin", async function () {
       const admin = await pool.feeAdmin();

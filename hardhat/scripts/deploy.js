@@ -63,7 +63,7 @@ async function main() {
     // Write data to the file (creates the file if it doesn't exist)
     fs.writeFileSync(path.join(utilsPath, "contract-abis.json"),
     JSON.stringify(abis, null, 2), { flag: 'w' }); // 'w' flag ensures the file is created or overwritten
-    console.log("Contract ABIs have been written to contract-abis.json", { flag: 'w' });
+    console.log("Contract ABIs have been written to contract-abis.json");
 
 }
 
