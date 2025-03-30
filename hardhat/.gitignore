@@ -42,5 +42,5 @@ next-env.d.ts
 
 
 # hardhat
-/hardhat/artifacts
-/hardhat/cache
+artifacts
+cache
