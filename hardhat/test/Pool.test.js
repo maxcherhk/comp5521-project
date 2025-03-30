@@ -188,6 +188,49 @@ describe("Pool Contract", function () {
     });
   });
   
+  describe("previewWithdraw", function () {
+    beforeEach(async function () {
+      // Add initial liquidity: 100 Token0, 200 Token1
+      await pool.connect(user).addLiquidity(ethers.parseEther("100"));
+      
+      // Add approvals for deployer
+      await token0.connect(deployer).approve(pool.getAddress(), ethers.parseEther("1000000"));
+      await token1.connect(deployer).approve(pool.getAddress(), ethers.parseEther("1000000"));
+    });
+  
+    it("should correctly calculate withdrawal amounts", async function () {
+      // Check for half the LP tokens
+      const lpAmount = ethers.parseEther("50");
+      const [amount0, amount1] = await pool.previewWithdraw(lpAmount);
+      
+      // Should get 50% of reserves
+      expect(amount0).to.equal(ethers.parseEther("50")); // 50% of 100
+      expect(amount1).to.equal(ethers.parseEther("100")); // 50% of 200
+    });
+  
+    it("should calculate proportional amounts when there are multiple liquidity providers", async function () {
+      // Add more liquidity from another account
+      const addAmount0 = ethers.parseEther("50");
+      await pool.connect(deployer).addLiquidity(addAmount0);
+      
+      // Total reserves now: 150 Token0, 300 Token1
+      // Total LP supply: 150
+      
+      // Preview withdrawing user's original 100 LP tokens
+      const lpAmount = ethers.parseEther("100");
+      const [amount0, amount1] = await pool.previewWithdraw(lpAmount);
+      
+      // Should get 100/150 = 2/3 of reserves
+      expect(amount0).to.equal(ethers.parseEther("100")); // 2/3 of 150
+      expect(amount1).to.equal(ethers.parseEther("200")); // 2/3 of 300
+    });
+  
+    it("should revert when preview amount is zero", async function () {
+      await expect(pool.previewWithdraw(0))
+        .to.be.revertedWith("Amount must be greater than 0");
+    });
+  });
+  
   describe("Fee management", function () {
     it("should initialize with deployer as fee admin", async function () {
       const admin = await pool.feeAdmin();
