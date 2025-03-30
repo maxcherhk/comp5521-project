@@ -188,4 +188,96 @@ describe("Pool Contract", function () {
     });
   });
   
+  describe("Fee management", function () {
+    it("should initialize with deployer as fee admin", async function () {
+      const admin = await pool.feeAdmin();
+      expect(admin).to.equal(deployer.address);
+    });
+
+    it("should initialize with 0% fee rate", async function () {
+      const feeRate = await pool.feeRate();
+      expect(feeRate).to.equal(0);
+    });
+
+    it("should allow fee admin to set fee rate", async function () {
+      // Set fee to 0.3% (30 basis points)
+      const tx = await pool.connect(deployer).setFeeRate(30);
+      
+      const newFeeRate = await pool.feeRate();
+      expect(newFeeRate).to.equal(30);
+      
+      await expect(tx)
+        .to.emit(pool, "FeeRateUpdated")
+        .withArgs(30);
+    });
+
+    it("should revert when non-admin tries to set fee rate", async function () {
+      await expect(pool.connect(user).setFeeRate(30))
+        .to.be.revertedWith("Only fee admin can update fee rate");
+    });
+
+    it("should allow fee admin to transfer admin role", async function () {
+      const tx = await pool.connect(deployer).setFeeAdmin(user.address);
+      
+      const newAdmin = await pool.feeAdmin();
+      expect(newAdmin).to.equal(user.address);
+      
+      await expect(tx)
+        .to.emit(pool, "FeeAdminUpdated")
+        .withArgs(user.address);
+    });
+
+    it("should revert when fee rate exceeds 1%", async function () {
+      await expect(pool.connect(deployer).setFeeRate(101))
+        .to.be.revertedWith("Fee rate cannot exceed 1%");
+    });
+  });
+
+  describe("getAmountOut with fees", function () {
+    beforeEach(async function () {
+      await pool.connect(user).addLiquidity(ethers.parseEther("100"));
+      // Set fee to 0.3% (30 basis points)
+      await pool.connect(deployer).setFeeRate(30);
+    });
+
+    it("should calculate output accounting for fees", async function () {
+      const amountIn = ethers.parseEther("100");
+      const amountOut = await pool.getAmountOut(token0.getAddress(), amountIn, token1.getAddress());
+      
+      // Fee-adjusted calculation: 
+      // amountInWithFee = 100 * (10000 - 30) / 10000 = 99.7 ETH
+      // amountOut = (200 * 99.7) / (100 + 99.7) = 99.7 ETH
+      const expectedAmountInWithFee = amountIn * (10000n - 30n) / 10000n;
+      const expectedAmountOut = ethers.parseEther("200") * expectedAmountInWithFee / 
+                               (ethers.parseEther("100") + expectedAmountInWithFee);
+      
+      expect(amountOut).to.equal(expectedAmountOut);
+    });
+  });
+
+  describe("swap with fees", function () {
+    beforeEach(async function () {
+      await pool.connect(user).addLiquidity(ethers.parseEther("100"));
+      // Set fee to 0.3% (30 basis points)
+      await pool.connect(deployer).setFeeRate(30);
+    });
+
+    it("should swap with fee applied", async function () {
+      const initialBalance1 = await token1.balanceOf(user.address);
+      
+      const amountIn = ethers.parseEther("100");
+      await pool.connect(user).swap(token0.getAddress(), amountIn, token1.getAddress());
+      
+      const finalBalance1 = await token1.balanceOf(user.address);
+      const receivedAmount = finalBalance1 - initialBalance1;
+      
+      // Calculate expected output with 0.3% fee
+      const amountInWithFee = amountIn * (10000n - 30n) / 10000n;
+      const expectedOutput = ethers.parseEther("200") * amountInWithFee / 
+                           (ethers.parseEther("100") + amountInWithFee);
+      
+      expect(receivedAmount).to.equal(expectedOutput);
+    });
+  });
+  
 });
