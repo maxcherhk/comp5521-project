@@ -18,6 +18,17 @@ contract Pool is LPToken, ReentrancyGuard {
     uint256 public feeRate = 0; // 0% fee by default
     address public feeAdmin;
 
+    // Track accumulated fees for each token
+    uint256 public accumulatedFees0;
+    uint256 public accumulatedFees1;
+    
+    // Track last claim timestamp for fee distribution periods
+    uint256 public lastFeeDistributionTime;
+    
+    // Track claimed fees per user
+    mapping(address => uint256) public claimedFees0;
+    mapping(address => uint256) public claimedFees1;
+
     mapping(address => uint256) tokenBalances;
 
     event AddedLiquidity(
@@ -49,17 +60,18 @@ contract Pool is LPToken, ReentrancyGuard {
         address tokenIn,
         uint256 amountIn,
         address tokenOut
-    ) public view returns (uint256) {
+    ) public view returns (uint256 amountOut, uint256 feeAmount) {
         uint256 balanceOut = tokenBalances[tokenOut];
         uint256 balanceIn = tokenBalances[tokenIn];
 
-        // Apply fee to the input amount
-        uint256 amountInWithFee = amountIn * (10000 - feeRate) / 10000;
+        // Calculate the fee amount explicitly
+        feeAmount = (amountIn * feeRate) / 10000;
+        uint256 amountInWithFee = amountIn - feeAmount;
         
         // Calculate output amount with the reduced input (after fee)
-        uint256 amountOut = (balanceOut * amountInWithFee) / (balanceIn + amountInWithFee);
+        amountOut = (balanceOut * amountInWithFee) / (balanceIn + amountInWithFee);
 
-        return amountOut;
+        return (amountOut, feeAmount);
     }
 
     function swap(
@@ -67,36 +79,86 @@ contract Pool is LPToken, ReentrancyGuard {
         uint256 amountIn,
         address tokenOut
     ) public nonReentrant {
-        // input validity checks
-        require(tokenIn != tokenOut, "Same tokens");
-        require(
-            tokenIn == i_token0_address || tokenIn == i_token1_address,
-            "Invalid token"
-        );
-        require(
-            tokenOut == i_token0_address || tokenOut == i_token1_address,
-            "Invalid token"
-        );
-        require(amountIn > 0, "Zero amount");
+    // input validity checks
+    require(tokenIn != tokenOut, "Same tokens");
+    require(
+        tokenIn == i_token0_address || tokenIn == i_token1_address,
+        "Invalid token"
+    );
+    require(
+        tokenOut == i_token0_address || tokenOut == i_token1_address,
+        "Invalid token"
+    );
+    require(amountIn > 0, "Zero amount");
 
-        uint256 amountOut = getAmountOut(tokenIn, amountIn, tokenOut);
+    // Get both the output amount and fee amount in one call
+    (uint256 amountOut, uint256 feeAmount) = getAmountOut(tokenIn, amountIn, tokenOut);
+    uint256 amountInAfterFee = amountIn - feeAmount;
 
-        // swapping tokens
-        require(
-            IERC20(tokenIn).transferFrom(msg.sender, address(this), amountIn),
-            "Swap Failed"
-        );
-        require(
-            IERC20(tokenOut).transfer(msg.sender, amountOut),
-            "Swap Failed"
-        );
+    // swapping tokens
+    require(
+        IERC20(tokenIn).transferFrom(msg.sender, address(this), amountIn),
+        "Swap Failed"
+    );
+    require(
+        IERC20(tokenOut).transfer(msg.sender, amountOut),
+        "Swap Failed"
+    );
 
-        // update pool balances
-        tokenBalances[tokenIn] += amountIn;
-        tokenBalances[tokenOut] -= amountOut;
-
-        emit Swapped(tokenIn, amountIn, tokenOut, amountOut);
+    // Accumulate fees for distribution to liquidity providers
+    if (tokenIn == i_token0_address) {
+        accumulatedFees0 += feeAmount;
+    } else {
+        accumulatedFees1 += feeAmount;
     }
+
+    // update pool balances (now considering only the amount after fee for pool calculations)
+    tokenBalances[tokenIn] += amountInAfterFee;
+    tokenBalances[tokenOut] -= amountOut;
+
+    emit Swapped(tokenIn, amountIn, tokenOut, amountOut);
+    }
+
+    // Function for liquidity providers to claim their share of fees
+    function claimFees() external nonReentrant returns (uint256 fee0, uint256 fee1) {
+        uint256 userLpBalance = balanceOf(msg.sender);
+        require(userLpBalance > 0, "No LP tokens");
+
+        uint256 totalLp = totalSupply();
+        uint256 shareRatio = (userLpBalance * 1e18) / totalLp; // Using 1e18 for precision
+
+        // Calculate user's share of accumulated fees
+        fee0 = (accumulatedFees0 * shareRatio) / 1e18;
+        fee1 = (accumulatedFees1 * shareRatio) / 1e18;
+
+        // Avoid dust amounts
+        if (fee0 > 0) {
+            accumulatedFees0 -= fee0;
+            require(i_token0.transfer(msg.sender, fee0), "Fee0 transfer failed");
+        }
+        
+        if (fee1 > 0) {
+            accumulatedFees1 -= fee1;
+            require(i_token1.transfer(msg.sender, fee1), "Fee1 transfer failed");
+        }
+
+        emit FeesCollected(msg.sender, fee0, fee1);
+        return (fee0, fee1);
+    }
+
+    function getPendingFees(address user) external view returns (uint256 pendingFee0, uint256 pendingFee1) {
+        uint256 userLpBalance = balanceOf(user);
+        if (userLpBalance == 0) return (0, 0);
+        
+        uint256 totalLp = totalSupply();
+        uint256 shareRatio = (userLpBalance * 1e18) / totalLp;
+
+        pendingFee0 = (accumulatedFees0 * shareRatio) / 1e18;
+        pendingFee1 = (accumulatedFees1 * shareRatio) / 1e18;
+        
+        return (pendingFee0, pendingFee1);
+    }
+    
 
     function addLiquidity(uint256 amount0) public nonReentrant {
         // input validity check
@@ -215,8 +277,9 @@ contract Pool is LPToken, ReentrancyGuard {
         feeAdmin = _newAdmin;
         emit FeeAdminUpdated(_newAdmin);
     }
-    
-    // Add new events
+
+
+    event FeesCollected(address indexed user, uint256 amount0, uint256 amount1);
     event FeeRateUpdated(uint256 newFeeRate);
     event FeeAdminUpdated(address newFeeAdmin);
 
