@@ -175,6 +175,11 @@ contract Pool is LPToken, ReentrancyGuard {
         );
     }
 
+    function getReserves() public view returns (uint256 reserve0, uint256 reserve1) {
+        reserve0 = tokenBalances[i_token0_address];
+        reserve1 = tokenBalances[i_token1_address];
+        return (reserve0, reserve1);
+    }
     // Add the event for liquidity removal
     event RemovedLiquidity(
         uint256 indexed lpToken,
