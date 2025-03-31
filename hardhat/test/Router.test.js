@@ -690,4 +690,148 @@ describe("Router Contract", function () {
       ).to.be.revertedWith("POOL_DOES_NOT_EXIST");
     });
   });
+
+  describe("previewSwapMultiHop", function () {
+    beforeEach(async function () {
+      // Create and add liquidity to token0-token1 pool
+      const token0Address = await token0.getAddress();
+      const token1Address = await token1.getAddress();
+      const token2Address = await token2.getAddress();
+      
+      // Transfer more tokens to the user for multi-hop tests
+      await token0.transfer(user.address, ethers.parseEther("1000"));
+      await token1.transfer(user.address, ethers.parseEther("1000"));
+      await token2.transfer(user.address, ethers.parseEther("1000"));
+      
+      // Re-approve tokens with higher amounts for multi-hop tests
+      await token0.connect(user).approve(await router.getAddress(), ethers.parseEther("10000"));
+      await token1.connect(user).approve(await router.getAddress(), ethers.parseEther("10000"));
+      await token2.connect(user).approve(await router.getAddress(), ethers.parseEther("10000"));
+      
+      // Add liquidity to token0-token1 pool
+      await router.connect(user).addLiquidityFromToken0(token0Address, token1Address, ethers.parseEther("100"));
+      
+      // Create and add liquidity to token1-token2 pool
+      await router.createPool(token1Address, token2Address);
+      
+      // Get pool address to approve tokens directly for the pool
+      const poolAddress = await factory.findPool(token1Address, token2Address);
+      
+      // Attach to pool to approve tokens directly
+      const Pool = await hre.ethers.getContractFactory("Pool");
+      const pool = Pool.attach(poolAddress);
+      
+      // Approve tokens directly for the pool with much higher amounts
+      await token1.connect(user).approve(poolAddress, ethers.parseEther("10000"));
+      await token2.connect(user).approve(poolAddress, ethers.parseEther("10000"));
+      
+      // Add liquidity to token1-token2 pool
+      await pool.connect(user).addLiquidityFromToken0(ethers.parseEther("100"));
+    });
+    
+    it("should correctly preview multi-hop swap results", async function () {
+      const token0Address = await token0.getAddress();
+      const token1Address = await token1.getAddress();
+      const token2Address = await token2.getAddress();
+      
+      const path = [token0Address, token1Address, token2Address];
+      const amountIn = ethers.parseEther("10");
+      
+      // Get preview of multi-hop swap
+      const [expectedAmountOut, totalFee, amountsOut, feesPerHop] = await router.previewSwapMultiHop(
+        path,
+        amountIn
+      );
+      
+      // Verify the returned values
+      expect(expectedAmountOut).to.be.gt(0); // Expected output should be greater than 0
+      expect(amountsOut.length).to.equal(3); // Should match the path length
+      expect(feesPerHop.length).to.equal(2); // Should be path.length - 1
+      
+      // amountsOut[0] should be the input amount
+      expect(amountsOut[0]).to.equal(amountIn);
+      
+      // Each subsequent amount should be the result of the swap
+      expect(amountsOut[1]).to.be.gt(0);
+      expect(amountsOut[2]).to.be.gt(0);
+      
+      // Verify the fee values
+      expect(feesPerHop[0]).to.be.gte(0);
+      expect(feesPerHop[1]).to.be.gte(0);
+      
+      // Total fee should be the sum of individual fees
+      expect(totalFee).to.equal(feesPerHop[0] + feesPerHop[1]);
+    });
+    
+    it("should match actual swap output with preview output", async function () {
+      const token0Address = await token0.getAddress();
+      const token1Address = await token1.getAddress();
+      const token2Address = await token2.getAddress();
+      
+      const path = [token0Address, token1Address, token2Address];
+      const amountIn = ethers.parseEther("10");
+      
+      // Get preview of multi-hop swap
+      const [expectedAmountOut, totalFeePreview] = await router.previewSwapMultiHop(
+        path,
+        amountIn
+      );
+      
+      // Get balances before actual swap
+      const balance0Before = await token0.balanceOf(user.address);
+      const balance2Before = await token2.balanceOf(user.address);
+      
+      // Perform actual multi-hop swap
+      const tx = await router.connect(user).swapMultiHop(
+        path,
+        amountIn,
+        0 // No minimum output requirement for this test
+      );
+      
+      // Get the result of the actual swap
+      const receipt = await tx.wait();
+      const [actualAmountOut, totalFeeActual] = await router.connect(user).swapMultiHop.staticCall(
+        path,
+        amountIn,
+        0
+      );
+      
+      // Get balances after swap
+      const balance0After = await token0.balanceOf(user.address);
+      const balance2After = await token2.balanceOf(user.address);
+      
+      // Check token balances changed correctly
+      expect(balance0Before - balance0After).to.equal(amountIn); // User spent 10 token0
+      
+      // Actual received amount should match the preview amount (or very close)
+      const actualReceived = balance2After - balance2Before;
+      
+      // Allow a small margin of error (due to potential differences in gas or other factors)
+      const tolerance = ethers.parseEther("0.001"); // 0.1% tolerance
+      
+      expect(actualReceived).to.be.closeTo(expectedAmountOut, tolerance);
+      expect(totalFeeActual).to.be.closeTo(totalFeePreview, tolerance);
+    });
+    
+    it("should revert with invalid path", async function () {
+      const token0Address = await token0.getAddress();
+      
+      // Try with single token path
+      await expect(router.previewSwapMultiHop(
+        [token0Address],
+        ethers.parseEther("10")
+      )).to.be.revertedWith("INVALID_PATH");
+    });
+    
+    it("should revert when a pool in the path does not exist", async function () {
+      const token0Address = await token0.getAddress();
+      const token2Address = await token2.getAddress();
+      
+      // Try path where token0-token2 pool doesn't exist
+      await expect(router.previewSwapMultiHop(
+        [token0Address, token2Address],
+        ethers.parseEther("10")
+      )).to.be.revertedWith("POOL_DOES_NOT_EXIST");
+    });
+  });
 }); 
