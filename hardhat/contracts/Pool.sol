@@ -190,7 +190,7 @@ contract Pool is LPToken, ReentrancyGuard {
     }
     
 
-    function addLiquidity(uint256 amount0) public nonReentrant {
+    function addLiquidityFromToken0(uint256 amount0) public nonReentrant {
         // input validity check
         require(amount0 > 0, "Amount must be greater than 0");
 
