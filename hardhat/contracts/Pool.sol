@@ -436,6 +436,13 @@ contract Pool is LPToken, ReentrancyGuard {
         emit FeeAdminUpdated(_newAdmin);
     }
 
+    function getFeeRate() external view returns (uint256) {
+        return feeRate;
+    }
+
+    function getFeeAdmin() external view returns (address) {
+        return feeAdmin;
+    }
 
     event FeesCollected(address indexed user, uint256 amount0, uint256 amount1);
     event FeeRateUpdated(uint256 newFeeRate);
