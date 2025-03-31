@@ -328,9 +328,9 @@ describe("Pool Contract", function () {
         .withArgs(user.address);
     });
 
-    it("should revert when fee rate exceeds 1%", async function () {
-      await expect(pool.connect(deployer).setFeeRate(101))
-        .to.be.revertedWith("Fee rate cannot exceed 1%");
+    it("should revert when fee rate exceeds 100%", async function () {
+      await expect(pool.connect(deployer).setFeeRate(10001))
+        .to.be.revertedWith("Fee rate cannot exceed 100%");
     });
   });
 
