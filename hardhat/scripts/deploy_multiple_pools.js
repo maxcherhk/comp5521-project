@@ -1,5 +1,7 @@
 // Deploy script for setting up multiple liquidity pools
 const hre = require("hardhat");
+const fs = require("fs");
+const path = require("path");
 
 async function main() {
   console.log("Deploying multiple liquidity pool system...");
@@ -18,9 +20,14 @@ async function main() {
   console.log("Token B deployed at:", await tokenB.getAddress());
   
   console.log("Deploying token C...");
-  const tokenC = await NewToken.deploy("Gamma", "GAMMA");
+  const tokenC = await NewToken.deploy("Charlie", "CHARLIE");
   await tokenC.waitForDeployment();
   console.log("Token C deployed at:", await tokenC.getAddress());
+
+  console.log("Deploying token D...");
+  const tokenD = await NewToken.deploy("Delta", "DELTA");
+  await tokenD.waitForDeployment();
+  console.log("Token D deployed at:", await tokenD.getAddress());
 
   // Deploy the factory
   console.log("Deploying Pool Factory...");
@@ -60,6 +67,13 @@ async function main() {
   );
   await tx3.wait();
 
+  console.log("Creating Token A - Token D pool...");
+  const tx4 = await factory.createPool(
+    await tokenA.getAddress(),
+    await tokenD.getAddress()
+  );
+  await tx4.wait();
+
   // Get all pools
   const pools = await factory.getAllPools();
   console.log("All pools created:", pools);
@@ -85,7 +99,57 @@ async function main() {
   );
   console.log("Pool A-C:", poolAC);
   
+  const poolAD = await factory.findPool(
+    await tokenA.getAddress(),
+    await tokenD.getAddress()
+  );
+  console.log("Pool A-D:", poolAD);
+  
   console.log("Multiple pools deployment complete!");
+
+
+  // Write contract addresses to file
+  const addresses = {
+    tokenA: await tokenA.getAddress(),
+    tokenB: await tokenB.getAddress(),
+    tokenC: await tokenC.getAddress(),
+    tokenD: await tokenD.getAddress(),
+    poolAB: poolAB,
+    poolBC: poolBC,
+    poolAC: poolAC,
+    poolAD: poolAD,
+    factory: await factory.getAddress(),
+    router: await router.getAddress()
+  };
+
+  // Create utils directory if it doesn't exist
+  const utilsPath = path.join(__dirname, "../frontend/src/utils");
+  if (!fs.existsSync(utilsPath)) {
+    fs.mkdirSync(utilsPath, { recursive: true });
+  }
+
+  // Write data to the file (creates the file if it doesn't exist)
+  fs.writeFileSync(path.join(utilsPath, "deployed-addresses.json"),
+  JSON.stringify(addresses, null, 2), { flag: 'w' }); // 'w' flag ensures the file is created or overwritten
+  console.log("\nContract addresses have been written to deployed-addresses.json");
+
+  // Export ABIs
+  const artifacts = {
+    NewToken: await hre.artifacts.readArtifact("NewToken"),
+    LPToken: await hre.artifacts.readArtifact("LPToken"),
+    Pool: await hre.artifacts.readArtifact("Pool")
+  };
+  
+  const abis = {
+    NewToken: artifacts.NewToken.abi,
+    LPToken: artifacts.LPToken.abi,
+    Pool: artifacts.Pool.abi
+  };
+  
+  // Write data to the file (creates the file if it doesn't exist)
+  fs.writeFileSync(path.join(utilsPath, "deployed-abis.json"),
+  JSON.stringify(abis, null, 2), { flag: 'w' }); // 'w' flag ensures the file is created or overwritten
+  console.log("\nABIs have been written to deployed-abis.json");
 }
 
 // We recommend this pattern to be able to use async/await everywhere
