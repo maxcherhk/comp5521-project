@@ -11,6 +11,9 @@ contract Pool is LPToken, ReentrancyGuard {
 
     address immutable i_token0_address;
     address immutable i_token1_address;
+    
+    // Factory that created this pool
+    address public factory;
 
     uint256 constant INITIAL_RATIO = 2; //token0:token1 = 1:2
 
@@ -46,14 +49,24 @@ contract Pool is LPToken, ReentrancyGuard {
         uint256 indexed amountOut
     );
 
-    constructor(address token0, address token1) LPToken("LPToken", "LPT") {
-        i_token0 = IERC20(token0);
-        i_token1 = IERC20(token1);
+    constructor(address token0, address token1) LPToken(
+        string(abi.encodePacked("LP-", ERC20(token0).symbol(), "-", ERC20(token1).symbol())),
+        string(abi.encodePacked("LP-", ERC20(token0).symbol(), "-", ERC20(token1).symbol()))
+    ) {
+        // Store factory address that created this pool
+        factory = msg.sender;
+        
+        // Ensure the tokens are in the correct order
+        (address _token0, address _token1) = token0 < token1 ? (token0, token1) : (token1, token0);
+        
+        i_token0 = IERC20(_token0);
+        i_token1 = IERC20(_token1);
 
-        i_token0_address = token0;
-        i_token1_address = token1;
+        i_token0_address = _token0;
+        i_token1_address = _token1;
 
-         feeAdmin = msg.sender; // Set deployer as fee admin
+        // Get fee admin from factory
+        feeAdmin = IPoolFactory(factory).feeAdmin();
     }
 
     function getAmountOut(
@@ -371,5 +384,9 @@ contract Pool is LPToken, ReentrancyGuard {
     event FeesCollected(address indexed user, uint256 amount0, uint256 amount1);
     event FeeRateUpdated(uint256 newFeeRate);
     event FeeAdminUpdated(address newFeeAdmin);
+}
 
+// Interface for the PoolFactory
+interface IPoolFactory {
+    function feeAdmin() external view returns (address);
 }
