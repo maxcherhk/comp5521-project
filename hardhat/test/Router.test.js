@@ -67,6 +67,9 @@ describe("Router Contract", function () {
     router = await Router.deploy(await factory.getAddress());
     await router.waitForDeployment();
     
+    // Authorize the router in the factory
+    await factory.setRouterAuthorization(await router.getAddress(), true);
+    
     // Send tokens to user for testing
     await token0.transfer(user.address, ethers.parseEther("10000"));
     await token1.transfer(user.address, ethers.parseEther("10000"));
@@ -480,6 +483,211 @@ describe("Router Contract", function () {
         amountIn,
         token2Address
       )).to.be.revertedWith("POOL_DOES_NOT_EXIST");
+    });
+  });
+  
+  describe("claimFeesFromPools", function () {
+    let poolAddress;
+    let Pool;
+    let pool;
+    
+    beforeEach(async function () {
+      // Get token addresses
+      const token0Address = await token0.getAddress();
+      const token1Address = await token1.getAddress();
+      
+      // Create a pool with liquidity
+      poolAddress = await factory.findPool(token0Address, token1Address);
+      
+      // Attach to the pool contract
+      Pool = await hre.ethers.getContractFactory("Pool");
+      pool = Pool.attach(poolAddress);
+      
+      // Add initial liquidity
+      await router.connect(user).addLiquidityFromToken0(token0Address, token1Address, ethers.parseEther("1000"));
+      
+      // Set a fee rate to generate fees (0.3%)
+      await pool.setFeeRate(30);
+      
+      // Perform swaps to generate fees
+      await router.connect(user).swap(
+        token0Address,
+        ethers.parseEther("100"),
+        token1Address,
+        0
+      );
+      
+      await router.connect(user).swap(
+        token1Address,
+        ethers.parseEther("100"),
+        token0Address,
+        0
+      );
+    });
+    
+    it("should claim fees from a single pool", async function () {
+      const token0Address = await token0.getAddress();
+      const token1Address = await token1.getAddress();
+      
+      // Check initial balances
+      const initialBalance0 = await token0.balanceOf(user.address);
+      const initialBalance1 = await token1.balanceOf(user.address);
+      
+      // Check accumulated fees in the pool
+      const [pendingFee0, pendingFee1] = await pool.getPendingFees(user.address);
+      expect(pendingFee0).to.be.gt(0);
+      expect(pendingFee1).to.be.gt(0);
+      
+      // Claim fees
+      const tokenPairs = [[token0Address, token1Address]];
+      const result = await router.connect(user).claimFeesFromPools(tokenPairs);
+      
+      // Check balances after claiming
+      const finalBalance0 = await token0.balanceOf(user.address);
+      const finalBalance1 = await token1.balanceOf(user.address);
+      
+      // User should have received fees
+      expect(finalBalance0).to.be.gt(initialBalance0);
+      expect(finalBalance1).to.be.gt(initialBalance1);
+      
+      // Check the fee amounts match what was pending
+      expect(finalBalance0 - initialBalance0).to.equal(pendingFee0);
+      expect(finalBalance1 - initialBalance1).to.equal(pendingFee1);
+    });
+    
+    it("should claim fees from multiple pools", async function () {
+      const token0Address = await token0.getAddress();
+      const token1Address = await token1.getAddress();
+      const token2Address = await token2.getAddress();
+      
+      // Create and setup second pool directly
+      await factory.createPool(token1Address, token2Address);
+      const pool2Address = await factory.findPool(token1Address, token2Address);
+      const Pool = await hre.ethers.getContractFactory("Pool");
+      const pool2 = Pool.attach(pool2Address);
+      
+      // Add liquidity to the pools directly to avoid router approval issues
+      // First, approve tokens for both pools
+      await token0.connect(user).approve(await pool.getAddress(), ethers.parseEther("1000000")); 
+      await token1.connect(user).approve(await pool.getAddress(), ethers.parseEther("1000000"));
+      await token1.connect(user).approve(pool2Address, ethers.parseEther("1000000"));
+      await token2.connect(user).approve(pool2Address, ethers.parseEther("1000000"));
+      
+      // Add liquidity directly to the pools
+      await pool.connect(user).addLiquidityFromToken0(ethers.parseEther("1000"));
+      await pool2.connect(user).addLiquidityFromToken0(ethers.parseEther("1000"));
+      
+      // Set fee rates to generate fees (0.3%)
+      await pool.setFeeRate(30);
+      await pool2.setFeeRate(30);
+      
+      // Perform swaps to generate fees
+      await token0.connect(user).approve(await router.getAddress(), ethers.parseEther("1000000"));
+      await token1.connect(user).approve(await router.getAddress(), ethers.parseEther("1000000"));
+      await token2.connect(user).approve(await router.getAddress(), ethers.parseEther("1000000"));
+      
+      await router.connect(user).swap(
+        token0Address,
+        ethers.parseEther("100"),
+        token1Address,
+        0
+      );
+      
+      await router.connect(user).swap(
+        token1Address,
+        ethers.parseEther("100"),
+        token2Address,
+        0
+      );
+      
+      // Get user's token balances before claiming fees
+      const token0BalanceBefore = await token0.balanceOf(user.address);
+      const token1BalanceBefore = await token1.balanceOf(user.address);
+      const token2BalanceBefore = await token2.balanceOf(user.address);
+      
+      // Check pending fees before claim
+      const [pendingFee0_1, pendingFee1_1] = await pool.getPendingFees(user.address);
+      const [pendingFee0_2, pendingFee1_2] = await pool2.getPendingFees(user.address);
+      
+      // Verify that there are some pending fees
+      // At least one of the pools should have fees
+      const totalPendingFees = pendingFee0_1 + pendingFee1_1 + pendingFee0_2 + pendingFee1_2;
+      expect(totalPendingFees).to.be.gt(0);
+      
+      // Claim fees from both pools
+      const tokenPairs = [
+        [token0Address, token1Address],
+        [token1Address, token2Address]
+      ];
+      
+      // Claim fees
+      const tx = await router.connect(user).claimFeesFromPools(tokenPairs);
+      await tx.wait();
+      
+      // Get user's token balances after claiming fees
+      const token0BalanceAfter = await token0.balanceOf(user.address);
+      const token1BalanceAfter = await token1.balanceOf(user.address);
+      const token2BalanceAfter = await token2.balanceOf(user.address);
+      
+      // At least one of the token balances should have increased
+      const hasIncreasedBalance = 
+        token0BalanceAfter > token0BalanceBefore || 
+        token1BalanceAfter > token1BalanceBefore || 
+        token2BalanceAfter > token2BalanceBefore;
+      
+      expect(hasIncreasedBalance).to.be.true;
+      
+      // Verify fees were claimed (by checking they are now zero)
+      const [afterFee0_1, afterFee1_1] = await pool.getPendingFees(user.address);
+      const [afterFee0_2, afterFee1_2] = await pool2.getPendingFees(user.address);
+      
+      // Pending fees should now be zero or very close to zero (might be some dust)
+      expect(afterFee0_1).to.be.lt(ethers.parseUnits("1", 10)); // less than 10^-8
+      expect(afterFee1_1).to.be.lt(ethers.parseUnits("1", 10));
+      expect(afterFee0_2).to.be.lt(ethers.parseUnits("1", 10));
+      expect(afterFee1_2).to.be.lt(ethers.parseUnits("1", 10));
+    });
+    
+    it("should handle pools where user has no LP tokens", async function () {
+      const token0Address = await token0.getAddress();
+      const token1Address = await token1.getAddress();
+      const token2Address = await token2.getAddress();
+      
+      // Create a pool where user has no LP tokens
+      await router.createPool(token0Address, token2Address);
+      
+      // Claim fees from both pools (one with LP tokens, one without)
+      const tokenPairs = [
+        [token0Address, token1Address],
+        [token0Address, token2Address]
+      ];
+      
+      // This should not revert
+      await router.connect(user).claimFeesFromPools(tokenPairs);
+    });
+    
+    it("should revert with no pools specified", async function () {
+      await expect(
+        router.connect(user).claimFeesFromPools([])
+      ).to.be.revertedWith("NO_POOLS_SPECIFIED");
+    });
+    
+    it("should revert with invalid token pair", async function () {
+      const token0Address = await token0.getAddress();
+      
+      await expect(
+        router.connect(user).claimFeesFromPools([[token0Address]])
+      ).to.be.revertedWith("INVALID_TOKEN_PAIR");
+    });
+    
+    it("should revert when a pool does not exist", async function () {
+      const token0Address = await token0.getAddress();
+      const token2Address = await token2.getAddress();
+      
+      // Try to claim from non-existent pool
+      await expect(
+        router.connect(user).claimFeesFromPools([[token0Address, token2Address]])
+      ).to.be.revertedWith("POOL_DOES_NOT_EXIST");
     });
   });
 }); 
