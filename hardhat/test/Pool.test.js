@@ -323,5 +323,80 @@ describe("Pool Contract", function () {
       expect(receivedAmount).to.equal(expectedOutput);
     });
   });
-  
+  describe("LP token information functions", function () {
+    beforeEach(async function () {
+      // Add initial liquidity from user: 100 Token0, 200 Token1
+      await pool.connect(user).addLiquidity(ethers.parseEther("100"));
+    });
+    
+    describe("getLPBalance", function () {
+      it("should return correct LP balance for a user with liquidity", async function () {
+        const lpBalance = await pool.getLPBalance(user.address);
+        expect(lpBalance).to.equal(ethers.parseEther("100"));
+      });
+      
+      it("should return zero for a user without liquidity", async function () {
+        const lpBalance = await pool.getLPBalance(deployer.address);
+        expect(lpBalance).to.equal(0);
+      });
+    });
+    
+    describe("getUserLiquidityPosition", function () {
+      it("should return correct token amounts for a user with liquidity", async function () {
+        const [amount0, amount1] = await pool.getUserLiquidityPosition(user.address);
+        expect(amount0).to.equal(ethers.parseEther("100")); // All token0 reserve
+        expect(amount1).to.equal(ethers.parseEther("200")); // All token1 reserve
+      });
+      
+      it("should return zeros for a user without liquidity", async function () {
+        const [amount0, amount1] = await pool.getUserLiquidityPosition(deployer.address);
+        expect(amount0).to.equal(0);
+        expect(amount1).to.equal(0);
+      });
+      
+      it("should return proportional amounts with multiple liquidity providers", async function () {
+        // Add more liquidity from deployer (50 Token0, 100 Token1)
+        await token0.connect(deployer).approve(pool.getAddress(), ethers.parseEther("1000000"));
+        await token1.connect(deployer).approve(pool.getAddress(), ethers.parseEther("1000000"));
+        await pool.connect(deployer).addLiquidity(ethers.parseEther("50"));
+        
+        // Check user's position (should have 2/3 of the pool)
+        const [userAmount0, userAmount1] = await pool.getUserLiquidityPosition(user.address);
+        expect(userAmount0).to.equal(ethers.parseEther("100")); // 2/3 of 150
+        expect(userAmount1).to.equal(ethers.parseEther("200")); // 2/3 of 300
+        
+        // Check deployer's position (should have 1/3 of the pool)
+        const [deployerAmount0, deployerAmount1] = await pool.getUserLiquidityPosition(deployer.address);
+        expect(deployerAmount0).to.equal(ethers.parseEther("50")); // 1/3 of 150
+        expect(deployerAmount1).to.equal(ethers.parseEther("100")); // 1/3 of 300
+      });
+    });
+    
+    describe("getUserPoolShare", function () {
+      it("should return 100% (10000 basis points) for single liquidity provider", async function () {
+        const share = await pool.getUserPoolShare(user.address);
+        expect(share).to.equal(10000); // 100% in basis points
+      });
+      
+      it("should return zero for a user without liquidity", async function () {
+        const share = await pool.getUserPoolShare(deployer.address);
+        expect(share).to.equal(0);
+      });
+      
+      it("should return correct percentages with multiple liquidity providers", async function () {
+        // Add more liquidity from deployer (100 Token0, 200 Token1)
+        await token0.connect(deployer).approve(pool.getAddress(), ethers.parseEther("1000000"));
+        await token1.connect(deployer).approve(pool.getAddress(), ethers.parseEther("1000000"));
+        await pool.connect(deployer).addLiquidity(ethers.parseEther("100"));
+        
+        // Check user's share (should be 50%)
+        const userShare = await pool.getUserPoolShare(user.address);
+        expect(userShare).to.equal(5000); // 50% in basis points
+        
+        // Check deployer's share (should be 50%)
+        const deployerShare = await pool.getUserPoolShare(deployer.address);
+        expect(deployerShare).to.equal(5000); // 50% in basis points
+      });
+    });
+  });
 });
