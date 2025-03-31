@@ -182,6 +182,47 @@ contract Router is ReentrancyGuard {
         return (amountOut, totalFee);
     }
     
+    // Preview multi-hop swap result without executing the swap
+    function previewSwapMultiHop(
+        address[] calldata path,
+        uint256 amountIn
+    ) external view returns (uint256 expectedAmountOut, uint256 totalFee, uint256[] memory amountsOut, uint256[] memory feesPerHop) {
+        require(path.length >= 2, "INVALID_PATH");
+        
+        // Initialize arrays to store intermediate values
+        amountsOut = new uint256[](path.length);
+        feesPerHop = new uint256[](path.length - 1);
+        
+        // Set initial amount
+        amountsOut[0] = amountIn;
+        totalFee = 0;
+        
+        // Simulate swaps across the path
+        uint256 currentAmount = amountIn;
+        
+        for (uint i = 0; i < path.length - 1; i++) {
+            address currentPool = _getPool(path[i], path[i+1]);
+            require(currentPool != address(0), "POOL_DOES_NOT_EXIST");
+            
+            // Get expected output and fee for this hop
+            uint256 expectedOut;
+            uint256 feeAmount;
+            (expectedOut, feeAmount) = Pool(currentPool).getAmountOut(path[i], currentAmount, path[i+1]);
+            
+            // Store results
+            feesPerHop[i] = feeAmount;
+            currentAmount = expectedOut;
+            amountsOut[i+1] = expectedOut;
+            
+            // Accumulate the fee
+            totalFee += feeAmount;
+        }
+        
+        expectedAmountOut = currentAmount;
+        
+        return (expectedAmountOut, totalFee, amountsOut, feesPerHop);
+    }
+    
     // Allow users to create new pools through the router
     function createPool(address tokenA, address tokenB) external returns (address pool) {
         return PoolFactory(factory).createPool(tokenA, tokenB);
