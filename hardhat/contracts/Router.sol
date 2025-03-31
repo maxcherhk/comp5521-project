@@ -197,4 +197,87 @@ contract Router is ReentrancyGuard {
         require(pool != address(0), "POOL_DOES_NOT_EXIST");
         return Pool(pool).getAmountOut(tokenIn, amountIn, tokenOut);
     }
+    
+    struct ClaimResult {
+        address pool;
+        address token0;
+        address token1;
+        uint256 fee0;
+        uint256 fee1;
+    }
+    
+    function claimFeesFromPools(
+        address[][] calldata tokenPairs
+    ) external nonReentrant returns (ClaimResult[] memory results) {
+        uint256 pairCount = tokenPairs.length;
+        require(pairCount > 0, "NO_POOLS_SPECIFIED");
+        
+        results = new ClaimResult[](pairCount);
+        
+        for (uint256 i = 0; i < pairCount; i++) {
+            require(tokenPairs[i].length == 2, "INVALID_TOKEN_PAIR");
+            address tokenA = tokenPairs[i][0];
+            address tokenB = tokenPairs[i][1];
+            
+            address pool = _getPool(tokenA, tokenB);
+            require(pool != address(0), "POOL_DOES_NOT_EXIST");
+            
+            // Only claim if user has LP tokens in this pool
+            if (Pool(pool).balanceOf(msg.sender) > 0) {
+                // Get token addresses in correct order
+                (address token0, address token1) = tokenA < tokenB ? (tokenA, tokenB) : (tokenB, tokenA);
+                
+                // Store pool and token info
+                results[i].pool = pool;
+                results[i].token0 = token0;
+                results[i].token1 = token1;
+                
+                // Claim fees directly (no need to transfer through router)
+                (uint256 fee0, uint256 fee1) = Pool(pool).claimFees();
+                
+                // Store fee amounts in result
+                results[i].fee0 = fee0;
+                results[i].fee1 = fee1;
+            }
+        }
+        
+        return results;
+    }
+
+    function getPendingFeesFromPools(
+        address[][] calldata tokenPairs,
+        address user
+    ) external view returns (ClaimResult[] memory results) {
+        uint256 pairCount = tokenPairs.length;
+        require(pairCount > 0, "NO_POOLS_SPECIFIED");
+        
+        results = new ClaimResult[](pairCount);
+        
+        for (uint256 i = 0; i < pairCount; i++) {
+            require(tokenPairs[i].length == 2, "INVALID_TOKEN_PAIR");
+            address tokenA = tokenPairs[i][0];
+            address tokenB = tokenPairs[i][1];
+            
+            address pool = _getPool(tokenA, tokenB);
+            
+            if (pool != address(0) && Pool(pool).balanceOf(user) > 0) {
+                // Get token addresses in correct order
+                (address token0, address token1) = tokenA < tokenB ? (tokenA, tokenB) : (tokenB, tokenA);
+                
+                // Store pool and token info
+                results[i].pool = pool;
+                results[i].token0 = token0;
+                results[i].token1 = token1;
+                
+                // Get pending fees
+                (uint256 pendingFee0, uint256 pendingFee1) = Pool(pool).getPendingFees(user);
+                
+                // Store fee amounts in result
+                results[i].fee0 = pendingFee0;
+                results[i].fee1 = pendingFee1;
+            }
+        }
+        
+        return results;
+    }
 } 
