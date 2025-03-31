@@ -57,7 +57,7 @@ describe("Pool Contract", function () {
     snapshotId = await ethers.provider.send("evm_snapshot", []);
   });
 
-  describe("addLiquidity", function () {
+  describe("addLiquidityFromToken0", function () {
 
     it("should add initial liquidity and mint LP tokens", async function () {
 
@@ -109,6 +109,58 @@ describe("Pool Contract", function () {
         .to.be.revertedWith("Amount must be greater than 0");
     });
   });
+
+  describe("addLiquidityFromToken1", function () {
+    it("should add initial liquidity and mint LP tokens", async function () {
+      const amount1 = ethers.parseEther("200");
+      const tx = await pool.connect(user).addLiquidityFromToken1(amount1);
+      
+      // Check LP tokens minted - should be amount1/2 due to initial ratio
+      const expectedLP = amount1 / 2n;
+      const lpBalance = await pool.balanceOf(user.address);
+      expect(lpBalance).to.equal(expectedLP);
+
+      // Check reserves updated correctly
+      const [res0, res1] = await pool.getReserves();
+      expect(res0).to.equal(amount1 / 2n); // INITIAL_RATIO = 2
+      expect(res1).to.equal(amount1);
+
+      // Check event emission
+      await expect(tx)
+        .to.emit(pool, "AddedLiquidity")
+        .withArgs(expectedLP, token0.getAddress(), amount1 / 2n, token1.getAddress(), amount1);
+    });
+
+    it("should add liquidity proportionally when pool has reserves", async function () {
+      // Initial liquidity
+      const initialAmount1 = ethers.parseEther("200");
+      await pool.connect(user).addLiquidityFromToken1(initialAmount1);
+
+      // Additional liquidity
+      const addAmount1 = ethers.parseEther("100");
+      const tx = await pool.connect(user).addLiquidityFromToken1(addAmount1);
+
+      // Expected LP tokens: (100 * 100) / 200 = 50
+      const expectedLP = ethers.parseEther("50");
+      const lpBalance = await pool.balanceOf(user.address);
+      expect(lpBalance).to.equal(ethers.parseEther("150")); // 100 + 50
+
+      // Check reserves
+      const [res0, res1] = await pool.getReserves();
+      expect(res0).to.equal(ethers.parseEther("150")); // 100 + 50
+      expect(res1).to.equal(ethers.parseEther("300")); // 200 + 100
+
+      // Check event
+      await expect(tx)
+        .to.emit(pool, "AddedLiquidity")
+        .withArgs(expectedLP, token0.getAddress(), ethers.parseEther("50"), token1.getAddress(), addAmount1);
+    });
+
+    it("should revert when adding zero liquidity", async function () {
+      await expect(pool.connect(user).addLiquidityFromToken1(0))
+        .to.be.revertedWith("Amount must be greater than 0");
+    });
+});
 
   describe("swap", function () {
     beforeEach(async function () {
