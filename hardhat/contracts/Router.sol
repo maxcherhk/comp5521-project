@@ -219,25 +219,34 @@ contract Router is ReentrancyGuard {
             address tokenA = tokenPairs[i][0];
             address tokenB = tokenPairs[i][1];
             
-            address pool = _getPool(tokenA, tokenB);
-            require(pool != address(0), "POOL_DOES_NOT_EXIST");
+            address pool = _ensurePoolExists(tokenA, tokenB);
             
-            // Only claim if user has LP tokens in this pool
-            if (Pool(pool).balanceOf(msg.sender) > 0) {
-                // Get token addresses in correct order
-                (address token0, address token1) = tokenA < tokenB ? (tokenA, tokenB) : (tokenB, tokenA);
+            // Get token addresses in correct order
+            (address token0, address token1) = tokenA < tokenB ? (tokenA, tokenB) : (tokenB, tokenA);
+            
+            // Store pool and token info
+            results[i].pool = pool;
+            results[i].token0 = token0;
+            results[i].token1 = token1;
+            
+            // Check if user has LP tokens before attempting to claim
+            uint256 userLpBalance = Pool(pool).balanceOf(msg.sender);
+            if (userLpBalance > 0) {
+                // Get pending fees to be claimed
+                (uint256 pendingFee0, uint256 pendingFee1) = Pool(pool).getPendingFees(msg.sender);
                 
-                // Store pool and token info
-                results[i].pool = pool;
-                results[i].token0 = token0;
-                results[i].token1 = token1;
-                
-                // Claim fees directly (no need to transfer through router)
-                (uint256 fee0, uint256 fee1) = Pool(pool).claimFees();
-                
-                // Store fee amounts in result
-                results[i].fee0 = fee0;
-                results[i].fee1 = fee1;
+                // Only attempt to claim if there are actual fees to claim
+                if (pendingFee0 > 0 || pendingFee1 > 0) {
+                    try Pool(pool).claimFeesForUser(msg.sender) returns (uint256 fee0, uint256 fee1) {
+                        // Store claimed fee amounts in result
+                        results[i].fee0 = fee0;
+                        results[i].fee1 = fee1;
+                    } catch {
+                        // If claiming fails, set fees to 0
+                        results[i].fee0 = 0;
+                        results[i].fee1 = 0;
+                    }
+                }
             }
         }
         
