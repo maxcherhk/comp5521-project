@@ -14,8 +14,12 @@ contract PoolFactory {
     // Fee admin for all pools
     address public feeAdmin;
     
+    // Authorized routers that can call special functions
+    mapping(address => bool) public authorizedRouters;
+    
     // Events
     event PoolCreated(address indexed token0, address indexed token1, address pool, uint length);
+    event RouterAuthorized(address indexed router, bool status);
     
     constructor() {
         feeAdmin = msg.sender;
@@ -58,5 +62,19 @@ contract PoolFactory {
     function findPool(address tokenA, address tokenB) public view returns (address) {
         (address token0, address token1) = tokenA < tokenB ? (tokenA, tokenB) : (tokenB, tokenA);
         return getPool[token0][token1];
+    }
+    
+    // Authorize or deauthorize a router
+    function setRouterAuthorization(address router, bool authorized) external {
+        require(msg.sender == feeAdmin, "Only fee admin can authorize routers");
+        require(router != address(0), "Router cannot be zero address");
+        
+        authorizedRouters[router] = authorized;
+        emit RouterAuthorized(router, authorized);
+    }
+    
+    // Check if a router is authorized
+    function isAuthorizedRouter(address router) external view returns (bool) {
+        return authorizedRouters[router];
     }
 } 
