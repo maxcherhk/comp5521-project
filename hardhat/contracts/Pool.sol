@@ -9,9 +9,6 @@ contract Pool is LPToken, ReentrancyGuard {
     IERC20 immutable i_token0;
     IERC20 immutable i_token1;
 
-    address immutable i_token0_address;
-    address immutable i_token1_address;
-    
     // Factory that created this pool
     address public factory;
 
@@ -25,14 +22,7 @@ contract Pool is LPToken, ReentrancyGuard {
     uint256 public accumulatedFees0;
     uint256 public accumulatedFees1;
     
-    // Track last claim timestamp for fee distribution periods
-    uint256 public lastFeeDistributionTime;
-    
-    // Track claimed fees per user
-    mapping(address => uint256) public claimedFees0;
-    mapping(address => uint256) public claimedFees1;
-
-    mapping(address => uint256) tokenBalances;
+    mapping(address => uint256) public tokenBalances; // Now public
 
     event AddedLiquidity(
         uint256 indexed lpToken,
@@ -49,10 +39,22 @@ contract Pool is LPToken, ReentrancyGuard {
         uint256 indexed amountOut
     );
 
+    // Added event for pool creation
+    event PoolCreated(
+        address token0,
+        address token1,
+        address factory,
+        address feeAdmin
+    );
+
     constructor(address token0, address token1) LPToken(
         string(abi.encodePacked("LP-", ERC20(token0).symbol(), "-", ERC20(token1).symbol())),
         string(abi.encodePacked("LP-", ERC20(token0).symbol(), "-", ERC20(token1).symbol()))
     ) {
+        // Add validation for token addresses
+        require(token0 != address(0) && token1 != address(0), "Zero address");
+        require(token0 != token1, "Same token");
+        
         // Store factory address that created this pool
         factory = msg.sender;
         
@@ -62,11 +64,20 @@ contract Pool is LPToken, ReentrancyGuard {
         i_token0 = IERC20(_token0);
         i_token1 = IERC20(_token1);
 
-        i_token0_address = _token0;
-        i_token1_address = _token1;
-
         // Get fee admin from factory
         feeAdmin = IPoolFactory(factory).feeAdmin();
+        
+        // Emit pool created event
+        emit PoolCreated(_token0, _token1, factory, feeAdmin);
+    }
+
+    // Add accessor functions to replace the redundant immutable address variables
+    function token0() public view returns (address) {
+        return address(i_token0);
+    }
+
+    function token1() public view returns (address) {
+        return address(i_token1);
     }
 
     function getAmountOut(
@@ -76,6 +87,10 @@ contract Pool is LPToken, ReentrancyGuard {
     ) public view returns (uint256 amountOut, uint256 feeAmount) {
         uint256 balanceOut = tokenBalances[tokenOut];
         uint256 balanceIn = tokenBalances[tokenIn];
+        
+        // Fix division by zero vulnerability
+        require(balanceIn > 0, "Insufficient liquidity");
+        require(balanceOut > 0, "Insufficient liquidity");
 
         // Calculate the fee amount explicitly
         feeAmount = (amountIn * feeRate) / 10000;
@@ -92,44 +107,47 @@ contract Pool is LPToken, ReentrancyGuard {
         uint256 amountIn,
         address tokenOut
     ) public nonReentrant {
-    // input validity checks
-    require(tokenIn != tokenOut, "Same tokens");
-    require(
-        tokenIn == i_token0_address || tokenIn == i_token1_address,
-        "Invalid token"
-    );
-    require(
-        tokenOut == i_token0_address || tokenOut == i_token1_address,
-        "Invalid token"
-    );
-    require(amountIn > 0, "Zero amount");
+        // input validity checks
+        require(tokenIn != tokenOut, "Same tokens");
+        require(
+            tokenIn == token0() || tokenIn == token1(),
+            "Invalid input token"
+        );
+        require(
+            tokenOut == token0() || tokenOut == token1(),
+            "Invalid output token"
+        );
+        require(amountIn > 0, "Zero amount");
 
-    // Get both the output amount and fee amount in one call
-    (uint256 amountOut, uint256 feeAmount) = getAmountOut(tokenIn, amountIn, tokenOut);
-    uint256 amountInAfterFee = amountIn - feeAmount;
+        // Get both the output amount and fee amount in one call
+        (uint256 amountOut, uint256 feeAmount) = getAmountOut(tokenIn, amountIn, tokenOut);
+        uint256 amountInAfterFee = amountIn - feeAmount;
 
-    // swapping tokens
-    require(
-        IERC20(tokenIn).transferFrom(msg.sender, address(this), amountIn),
-        "Swap Failed"
-    );
-    require(
-        IERC20(tokenOut).transfer(msg.sender, amountOut),
-        "Swap Failed"
-    );
+        // First transfer tokens from the user
+        require(
+            IERC20(tokenIn).transferFrom(msg.sender, address(this), amountIn),
+            "Transfer of input token failed"
+        );
+        
+        // Then transfer tokens to the user
+        require(
+            IERC20(tokenOut).transfer(msg.sender, amountOut),
+            "Transfer of output token failed"
+        );
 
-    // Accumulate fees for distribution to liquidity providers
-    if (tokenIn == i_token0_address) {
-        accumulatedFees0 += feeAmount;
-    } else {
-        accumulatedFees1 += feeAmount;
-    }
+        // Finally update the state
+        // Accumulate fees for distribution to liquidity providers
+        if (tokenIn == token0()) {
+            accumulatedFees0 += feeAmount;
+        } else {
+            accumulatedFees1 += feeAmount;
+        }
 
-    // update pool balances (now considering only the amount after fee for pool calculations)
-    tokenBalances[tokenIn] += amountInAfterFee;
-    tokenBalances[tokenOut] -= amountOut;
+        // update pool balances (now considering only the amount after fee for pool calculations)
+        tokenBalances[tokenIn] += amountInAfterFee;
+        tokenBalances[tokenOut] -= amountOut;
 
-    emit Swapped(tokenIn, amountIn, tokenOut, amountOut);
+        emit Swapped(tokenIn, amountIn, tokenOut, amountOut);
     }
 
     function getLPBalance(address user) external view returns (uint256) {
@@ -144,8 +162,8 @@ contract Pool is LPToken, ReentrancyGuard {
         
         // Calculate the proportion of the pool the user owns
         uint256 totalLP = totalSupply();
-        amount0 = (lpBalance * tokenBalances[i_token0_address]) / totalLP;
-        amount1 = (lpBalance * tokenBalances[i_token1_address]) / totalLP;
+        amount0 = (lpBalance * tokenBalances[token0()]) / totalLP;
+        amount1 = (lpBalance * tokenBalances[token1()]) / totalLP;
         
         return (amount0, amount1);
     }
@@ -177,12 +195,12 @@ contract Pool is LPToken, ReentrancyGuard {
         // Avoid dust amounts
         if (fee0 > 0) {
             accumulatedFees0 -= fee0;
-            require(i_token0.transfer(msg.sender, fee0), "Fee0 transfer failed");
+            require(i_token0.transfer(msg.sender, fee0), "Transfer of token0 failed");
         }
         
         if (fee1 > 0) {
             accumulatedFees1 -= fee1;
-            require(i_token1.transfer(msg.sender, fee1), "Fee1 transfer failed");
+            require(i_token1.transfer(msg.sender, fee1), "Transfer of token1 failed");
         }
 
         emit FeesCollected(msg.sender, fee0, fee1);
@@ -207,12 +225,12 @@ contract Pool is LPToken, ReentrancyGuard {
         // Avoid dust amounts
         if (fee0 > 0) {
             accumulatedFees0 -= fee0;
-            require(i_token0.transfer(user, fee0), "Fee0 transfer failed");
+            require(i_token0.transfer(user, fee0), "Transfer of token0 failed");
         }
         
         if (fee1 > 0) {
             accumulatedFees1 -= fee1;
-            require(i_token1.transfer(user, fee1), "Fee1 transfer failed");
+            require(i_token1.transfer(user, fee1), "Transfer of token1 failed");
         }
 
         emit FeesCollected(user, fee0, fee1);
@@ -237,37 +255,42 @@ contract Pool is LPToken, ReentrancyGuard {
         // input validity check
         require(amount0 > 0, "Amount must be greater than 0");
 
-        // calculate and mint liquidity tokens
+        // calculate the required amount of token1
         uint256 amount1 = getRequiredAmount1(amount0);
+        
+        // calculate liquidity tokens to mint
         uint256 amountLP;
         if (totalSupply() > 0) {
             amountLP =
                 (amount0 * totalSupply()) /
-                tokenBalances[i_token0_address];
+                tokenBalances[token0()];
         } else {
             amountLP = amount0;
         }
-        _mint(msg.sender, amountLP);
-
-        // deposit token0
+        
+        // First perform the token transfers
         require(
             i_token0.transferFrom(msg.sender, address(this), amount0),
-            "Transfer Alpha failed"
+            "Transfer of token0 failed"
         );
-        tokenBalances[i_token0_address] += amount0;
-
-        // deposit token1
+        
         require(
             i_token1.transferFrom(msg.sender, address(this), amount1),
-            "Transfer Beta failed"
+            "Transfer of token1 failed"
         );
-        tokenBalances[i_token1_address] += amount1;
+        
+        // Then update state variables after successful transfers
+        tokenBalances[token0()] += amount0;
+        tokenBalances[token1()] += amount1;
+        
+        // Finally mint LP tokens
+        _mint(msg.sender, amountLP);
 
         emit AddedLiquidity(
             amountLP,
-            i_token0_address,
+            token0(),
             amount0,
-            i_token1_address,
+            token1(),
             amount1
         );
     }
@@ -276,44 +299,49 @@ contract Pool is LPToken, ReentrancyGuard {
         // input validity check
         require(amount1 > 0, "Amount must be greater than 0");
 
-        // calculate and mint liquidity tokens
+        // calculate the required amount of token0
         uint256 amount0 = getRequiredAmount0(amount1);
+        
+        // calculate liquidity tokens to mint
         uint256 amountLP;
         if (totalSupply() > 0) {
             amountLP =
                 (amount1 * totalSupply()) /
-                tokenBalances[i_token1_address];
+                tokenBalances[token1()];
         } else {
             amountLP = amount1 / INITIAL_RATIO; // Adjusted for initial ratio
         }
-        _mint(msg.sender, amountLP);
-
-        // deposit token1
+        
+        // First perform the token transfers
         require(
             i_token1.transferFrom(msg.sender, address(this), amount1),
-            "Transfer Beta failed"
+            "Transfer of token1 failed"
         );
-        tokenBalances[i_token1_address] += amount1;
-
-        // deposit token0
+        
         require(
             i_token0.transferFrom(msg.sender, address(this), amount0),
-            "Transfer Alpha failed"
+            "Transfer of token0 failed"
         );
-        tokenBalances[i_token0_address] += amount0;
+        
+        // Then update state variables after successful transfers
+        tokenBalances[token1()] += amount1;
+        tokenBalances[token0()] += amount0;
+        
+        // Finally mint LP tokens
+        _mint(msg.sender, amountLP);
 
         emit AddedLiquidity(
             amountLP,
-            i_token0_address,
+            token0(),
             amount0,
-            i_token1_address,
+            token1(),
             amount1
         );
     }
 
     function getRequiredAmount0(uint256 amount1) public view returns (uint256) {
-        uint256 balance0 = tokenBalances[i_token0_address];
-        uint256 balance1 = tokenBalances[i_token1_address];
+        uint256 balance0 = tokenBalances[token0()];
+        uint256 balance1 = tokenBalances[token1()];
 
         if (balance0 == 0 || balance1 == 0) {
             return amount1 / INITIAL_RATIO; // Initial ratio is token0:token1 = 1:2
@@ -322,8 +350,8 @@ contract Pool is LPToken, ReentrancyGuard {
     }
     
     function getRequiredAmount1(uint256 amount0) public view returns (uint256) {
-        uint256 balance0 = tokenBalances[i_token0_address];
-        uint256 balance1 = tokenBalances[i_token1_address];
+        uint256 balance0 = tokenBalances[token0()];
+        uint256 balance1 = tokenBalances[token1()];
 
         if (balance0 == 0 || balance1 == 0) {
             return amount0 * INITIAL_RATIO;
@@ -338,19 +366,17 @@ contract Pool is LPToken, ReentrancyGuard {
 
         // Calculate the proportional amounts of token0 and token1 to withdraw
         uint256 totalLP = totalSupply();
-        uint256 amount0 = (lpAmount * tokenBalances[i_token0_address]) /
-            totalLP;
-        uint256 amount1 = (lpAmount * tokenBalances[i_token1_address]) /
-            totalLP;
+        uint256 amount0 = (lpAmount * tokenBalances[token0()]) / totalLP;
+        uint256 amount1 = (lpAmount * tokenBalances[token1()]) / totalLP;
 
-        // Burn the LP tokens
+        // First burn the LP tokens to prevent reentrancy
         _burn(msg.sender, lpAmount);
-
+        
         // Update pool balances
-        tokenBalances[i_token0_address] -= amount0;
-        tokenBalances[i_token1_address] -= amount1;
+        tokenBalances[token0()] -= amount0;
+        tokenBalances[token1()] -= amount1;
 
-        // Transfer tokens back to the user
+        // Finally transfer tokens back to the user
         require(
             i_token0.transfer(msg.sender, amount0),
             "Transfer of token0 failed"
@@ -363,9 +389,9 @@ contract Pool is LPToken, ReentrancyGuard {
         // Emit an event for the withdrawal
         emit RemovedLiquidity(
             lpAmount,
-            i_token0_address,
+            token0(),
             amount0,
-            i_token1_address,
+            token1(),
             amount1
         );
     }
@@ -374,15 +400,15 @@ contract Pool is LPToken, ReentrancyGuard {
         require(lpAmount > 0, "Amount must be greater than 0");
         
         uint256 totalLP = totalSupply();
-        amount0 = (lpAmount * tokenBalances[i_token0_address]) / totalLP;
-        amount1 = (lpAmount * tokenBalances[i_token1_address]) / totalLP;
+        amount0 = (lpAmount * tokenBalances[token0()]) / totalLP;
+        amount1 = (lpAmount * tokenBalances[token1()]) / totalLP;
         
         return (amount0, amount1);
     }
     
     function getReserves() public view returns (uint256 reserve0, uint256 reserve1) {
-        reserve0 = tokenBalances[i_token0_address];
-        reserve1 = tokenBalances[i_token1_address];
+        reserve0 = tokenBalances[token0()];
+        reserve1 = tokenBalances[token1()];
         return (reserve0, reserve1);
     }
     // Add the event for liquidity removal
@@ -397,7 +423,7 @@ contract Pool is LPToken, ReentrancyGuard {
     // Update fee rate (only fee admin can call)
     function setFeeRate(uint256 _feeRate) external {
         require(msg.sender == feeAdmin, "Only fee admin can update fee rate");
-        require(_feeRate <= 100, "Fee rate cannot exceed 1%"); // Max 1% fee as safety measure
+        require(_feeRate <= 10000, "Fee rate cannot exceed 100%"); // Max 100% fee as safety measure
         feeRate = _feeRate;
         emit FeeRateUpdated(_feeRate);
     }
