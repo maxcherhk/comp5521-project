@@ -4,8 +4,8 @@ const { ethers } = require("hardhat");
 
 describe("Pool Contract", function () {
 
-  let Token0, Token1, Pool;
-  let token0, token1, pool;
+  let Token0, Token1, Pool, PoolFactory;
+  let token0, token1, pool, factory;
   let owner, user;
 
   before(async function () {
@@ -21,14 +21,20 @@ describe("Pool Contract", function () {
     token1 = await NewToken.deploy("Beta", "BETA");
     await token1.waitForDeployment();
     
+    // Deploy the PoolFactory first
+    PoolFactory = await hre.ethers.getContractFactory("PoolFactory");
+    factory = await PoolFactory.deploy();
+    await factory.waitForDeployment();
 
-    // Deploy the Pool
+    // Create a pool using the factory
+    await factory.createPool(await token0.getAddress(), await token1.getAddress());
+    
+    // Get the pool address
+    const poolAddress = await factory.getPool(await token0.getAddress(), await token1.getAddress());
+    
+    // Get the Pool contract instance
     Pool = await hre.ethers.getContractFactory("Pool");
-    pool = await Pool.deploy(
-      await token0.getAddress(),
-      await token1.getAddress()
-    );
-    await pool.waitForDeployment();
+    pool = Pool.attach(poolAddress);
 
     [deployer, user] = await ethers.getSigners();
 
