@@ -142,7 +142,7 @@ contract Router is ReentrancyGuard {
         address[] calldata path,
         uint256 amountIn,
         uint256 amountOutMin
-    ) external nonReentrant returns (uint256 amountOut) {
+    ) external nonReentrant returns (uint256 amountOut, uint256 totalFee) {
         require(path.length >= 2, "INVALID_PATH");
         
         // Transfer initial tokens from user
@@ -150,14 +150,21 @@ contract Router is ReentrancyGuard {
         
         // Perform swaps across the path
         uint256 currentAmount = amountIn;
+        totalFee = 0;
+        
         for (uint i = 0; i < path.length - 1; i++) {
             address currentPool = _ensurePoolExists(path[i], path[i+1]);
             
             // Approve current token for the pool
             IERC20(path[i]).approve(currentPool, currentAmount);
             
-            // Get expected output
-            (uint256 expectedOut, ) = Pool(currentPool).getAmountOut(path[i], currentAmount, path[i+1]);
+            // Get expected output and fee
+            uint256 feeAmount;
+            uint256 expectedOut;
+            (expectedOut, feeAmount) = Pool(currentPool).getAmountOut(path[i], currentAmount, path[i+1]);
+            
+            // Accumulate the fee
+            totalFee += feeAmount;
             
             // Perform swap
             Pool(currentPool).swap(path[i], currentAmount, path[i+1]);
@@ -172,7 +179,7 @@ contract Router is ReentrancyGuard {
         // Transfer final tokens to user
         IERC20(path[path.length - 1]).transfer(msg.sender, amountOut);
         
-        return amountOut;
+        return (amountOut, totalFee);
     }
     
     // Allow users to create new pools through the router
