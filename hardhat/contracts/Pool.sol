@@ -189,6 +189,36 @@ contract Pool is LPToken, ReentrancyGuard {
         return (fee0, fee1);
     }
 
+    // Function to claim fees on behalf of a specified user (only usable by verified routers)
+    function claimFeesForUser(address user) external nonReentrant returns (uint256 fee0, uint256 fee1) {
+        // Verify that msg.sender is an authorized router
+        require(msg.sender == factory || IPoolFactory(factory).isAuthorizedRouter(msg.sender), "Unauthorized");
+        
+        uint256 userLpBalance = balanceOf(user);
+        require(userLpBalance > 0, "No LP tokens");
+
+        uint256 totalLp = totalSupply();
+        uint256 shareRatio = (userLpBalance * 1e18) / totalLp; // Using 1e18 for precision
+
+        // Calculate user's share of accumulated fees
+        fee0 = (accumulatedFees0 * shareRatio) / 1e18;
+        fee1 = (accumulatedFees1 * shareRatio) / 1e18;
+
+        // Avoid dust amounts
+        if (fee0 > 0) {
+            accumulatedFees0 -= fee0;
+            require(i_token0.transfer(user, fee0), "Fee0 transfer failed");
+        }
+        
+        if (fee1 > 0) {
+            accumulatedFees1 -= fee1;
+            require(i_token1.transfer(user, fee1), "Fee1 transfer failed");
+        }
+
+        emit FeesCollected(user, fee0, fee1);
+        return (fee0, fee1);
+    }
+
     function getPendingFees(address user) external view returns (uint256 pendingFee0, uint256 pendingFee1) {
         uint256 userLpBalance = balanceOf(user);
         if (userLpBalance == 0) return (0, 0);
@@ -389,4 +419,5 @@ contract Pool is LPToken, ReentrancyGuard {
 // Interface for the PoolFactory
 interface IPoolFactory {
     function feeAdmin() external view returns (address);
+    function isAuthorizedRouter(address router) external view returns (bool);
 }
