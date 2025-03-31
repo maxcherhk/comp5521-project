@@ -143,6 +143,7 @@ describe("Router Contract", function () {
       const token0Address = await token0.getAddress();
       const token1Address = await token1.getAddress();
       const amount0 = ethers.parseEther("100");
+      const minLpAmount = ethers.parseEther("90"); // Setting min LP amount slightly lower than expected
       
       // Get the pool address
       const poolAddress = await factory.findPool(token0Address, token1Address);
@@ -152,7 +153,7 @@ describe("Router Contract", function () {
       const pool = Pool.attach(poolAddress);
       
       // Add liquidity
-      const tx = await router.connect(user).addLiquidityFromToken0(token0Address, token1Address, amount0);
+      const tx = await router.connect(user).addLiquidityFromToken0(token0Address, token1Address, amount0, minLpAmount);
       
       // Check user's balances after liquidity added
       const balance0 = await token0.balanceOf(user.address);
@@ -176,10 +177,22 @@ describe("Router Contract", function () {
       const token0Address = await token0.getAddress();
       const token2Address = await token2.getAddress();
       const amount0 = ethers.parseEther("100");
+      const minLpAmount = ethers.parseEther("90");
       
       // Try to add liquidity to non-existent pool
-      await expect(router.connect(user).addLiquidityFromToken0(token0Address, token2Address, amount0))
+      await expect(router.connect(user).addLiquidityFromToken0(token0Address, token2Address, amount0, minLpAmount))
         .to.be.revertedWith("POOL_DOES_NOT_EXIST");
+    });
+    
+    it("should revert when LP amount is less than minLpAmount", async function () {
+      const token0Address = await token0.getAddress();
+      const token1Address = await token1.getAddress();
+      const amount0 = ethers.parseEther("100");
+      const minLpAmount = ethers.parseEther("101"); // Set higher than expected LP amount
+      
+      // Try to add liquidity with too high minLpAmount
+      await expect(router.connect(user).addLiquidityFromToken0(token0Address, token1Address, amount0, minLpAmount))
+        .to.be.revertedWith("INSUFFICIENT_LP_AMOUNT");
     });
   });
   
@@ -188,6 +201,7 @@ describe("Router Contract", function () {
       const token0Address = await token0.getAddress();
       const token1Address = await token1.getAddress();
       const amount1 = ethers.parseEther("200");
+      const minLpAmount = ethers.parseEther("90"); // Setting min LP amount slightly lower than expected
       
       // Get the pool address
       const poolAddress = await factory.findPool(token0Address, token1Address);
@@ -197,7 +211,7 @@ describe("Router Contract", function () {
       const pool = Pool.attach(poolAddress);
       
       // Add liquidity
-      const tx = await router.connect(user).addLiquidityFromToken1(token0Address, token1Address, amount1);
+      const tx = await router.connect(user).addLiquidityFromToken1(token0Address, token1Address, amount1, minLpAmount);
       
       // Check user's balances after liquidity added
       const balance0 = await token0.balanceOf(user.address);
@@ -221,10 +235,22 @@ describe("Router Contract", function () {
       const token0Address = await token0.getAddress();
       const token2Address = await token2.getAddress();
       const amount1 = ethers.parseEther("200");
+      const minLpAmount = ethers.parseEther("90");
       
       // Try to add liquidity to non-existent pool
-      await expect(router.connect(user).addLiquidityFromToken1(token0Address, token2Address, amount1))
+      await expect(router.connect(user).addLiquidityFromToken1(token0Address, token2Address, amount1, minLpAmount))
         .to.be.revertedWith("POOL_DOES_NOT_EXIST");
+    });
+    
+    it("should revert when LP amount is less than minLpAmount", async function () {
+      const token0Address = await token0.getAddress();
+      const token1Address = await token1.getAddress();
+      const amount1 = ethers.parseEther("200");
+      const minLpAmount = ethers.parseEther("101"); // Set higher than expected LP amount (which is 100)
+      
+      // Try to add liquidity with too high minLpAmount
+      await expect(router.connect(user).addLiquidityFromToken1(token0Address, token1Address, amount1, minLpAmount))
+        .to.be.revertedWith("INSUFFICIENT_LP_AMOUNT");
     });
   });
   
@@ -234,8 +260,9 @@ describe("Router Contract", function () {
       const token0Address = await token0.getAddress();
       const token1Address = await token1.getAddress();
       const amount0 = ethers.parseEther("100");
+      const minLpAmount = ethers.parseEther("90");
       
-      await router.connect(user).addLiquidityFromToken0(token0Address, token1Address, amount0);
+      await router.connect(user).addLiquidityFromToken0(token0Address, token1Address, amount0, minLpAmount);
       
       // Get pool and approve transfer of LP tokens
       const poolAddress = await factory.findPool(token0Address, token1Address);
@@ -253,11 +280,17 @@ describe("Router Contract", function () {
       const balance0Before = await token0.balanceOf(user.address);
       const balance1Before = await token1.balanceOf(user.address);
       
-      // Withdraw liquidity
+      // Set minimum amounts (with some buffer below expected output)
+      const minAmount0 = ethers.parseEther("45"); // Slightly less than expected 50
+      const minAmount1 = ethers.parseEther("90"); // Slightly less than expected 100
+      
+      // Withdraw liquidity with slippage protection
       const tx = await router.connect(user).withdrawLiquidity(
         token0Address, 
         token1Address, 
-        lpAmount
+        lpAmount,
+        minAmount0,
+        minAmount1
       );
       
       // Get balances after withdrawal
@@ -275,8 +308,99 @@ describe("Router Contract", function () {
       const lpAmount = ethers.parseEther("50");
       
       // Try to withdraw from non-existent pool
-      await expect(router.connect(user).withdrawLiquidity(token0Address, token2Address, lpAmount))
-        .to.be.revertedWith("POOL_DOES_NOT_EXIST");
+      await expect(router.connect(user).withdrawLiquidity(
+        token0Address, 
+        token2Address, 
+        lpAmount,
+        0,
+        0
+      )).to.be.revertedWith("POOL_DOES_NOT_EXIST");
+    });
+
+    it("should revert when minAmountA is not met", async function () {
+      const token0Address = await token0.getAddress();
+      const token1Address = await token1.getAddress();
+      const lpAmount = ethers.parseEther("50");
+      
+      // Set minimum amount0 higher than expected output
+      const minAmount0 = ethers.parseEther("60"); // Higher than expected 50
+      const minAmount1 = ethers.parseEther("90"); // Acceptable for amount1
+      
+      // Should revert due to insufficient A amount
+      await expect(router.connect(user).withdrawLiquidity(
+        token0Address, 
+        token1Address, 
+        lpAmount,
+        minAmount0,
+        minAmount1
+      )).to.be.revertedWith("INSUFFICIENT_A_AMOUNT");
+    });
+
+    it("should revert when minAmountB is not met", async function () {
+      const token0Address = await token0.getAddress();
+      const token1Address = await token1.getAddress();
+      const lpAmount = ethers.parseEther("50");
+      
+      // Set minimum amount1 higher than expected output
+      const minAmount0 = ethers.parseEther("45"); // Acceptable for amount0
+      const minAmount1 = ethers.parseEther("120"); // Higher than expected 100
+      
+      // Should revert due to insufficient B amount
+      await expect(router.connect(user).withdrawLiquidity(
+        token0Address, 
+        token1Address, 
+        lpAmount,
+        minAmount0,
+        minAmount1
+      )).to.be.revertedWith("INSUFFICIENT_B_AMOUNT");
+    });
+
+    it("should return the correct token amounts", async function () {
+      const token0Address = await token0.getAddress();
+      const token1Address = await token1.getAddress();
+      const lpAmount = ethers.parseEther("50"); // Withdraw half of the LP tokens
+      
+      // Get balances before withdrawal
+      const balance0Before = await token0.balanceOf(user.address);
+      const balance1Before = await token1.balanceOf(user.address);
+      
+      // Set minimum amounts
+      const minAmount0 = ethers.parseEther("45");
+      const minAmount1 = ethers.parseEther("90");
+      
+      // Withdraw liquidity and capture return values
+      const [returnedAmount0, returnedAmount1] = await router.connect(user).withdrawLiquidity.staticCall(
+        token0Address, 
+        token1Address, 
+        lpAmount,
+        minAmount0,
+        minAmount1
+      );
+      
+      // Execute the actual transaction
+      await router.connect(user).withdrawLiquidity(
+        token0Address, 
+        token1Address, 
+        lpAmount,
+        minAmount0,
+        minAmount1
+      );
+      
+      // Get balances after withdrawal
+      const balance0After = await token0.balanceOf(user.address);
+      const balance1After = await token1.balanceOf(user.address);
+      
+      // Calculate actual received amounts
+      const received0 = balance0After - balance0Before;
+      const received1 = balance1After - balance1Before;
+      
+      // The returned values should match the actual token transfers
+      expect(returnedAmount0).to.equal(received0);
+      expect(returnedAmount1).to.equal(received1);
+      
+      // And they should match the expected amounts from half of the liquidity
+      expect(returnedAmount0).to.equal(ethers.parseEther("50")); // 100 * 0.5
+      expect(returnedAmount1).to.equal(ethers.parseEther("100")); // 200 * 0.5
     });
   });
   
@@ -286,8 +410,9 @@ describe("Router Contract", function () {
       const token0Address = await token0.getAddress();
       const token1Address = await token1.getAddress();
       const amount0 = ethers.parseEther("100");
+      const minLpAmount = ethers.parseEther("90"); // Add min LP amount
       
-      await router.connect(user).addLiquidityFromToken0(token0Address, token1Address, amount0);
+      await router.connect(user).addLiquidityFromToken0(token0Address, token1Address, amount0, minLpAmount);
     });
     
     it("should swap tokens correctly", async function () {
@@ -364,8 +489,10 @@ describe("Router Contract", function () {
       await token1.connect(user).approve(await router.getAddress(), ethers.parseEther("10000"));
       await token2.connect(user).approve(await router.getAddress(), ethers.parseEther("10000"));
       
+      const minLpAmount = ethers.parseEther("90"); // Add min LP amount
+      
       // Add liquidity to token0-token1 pool
-      await router.connect(user).addLiquidityFromToken0(token0Address, token1Address, ethers.parseEther("100"));
+      await router.connect(user).addLiquidityFromToken0(token0Address, token1Address, ethers.parseEther("1000"), minLpAmount);
       
       // Create and add liquidity to token1-token2 pool
       await router.createPool(token1Address, token2Address);
@@ -381,7 +508,7 @@ describe("Router Contract", function () {
       await token1.connect(user).approve(poolAddress, ethers.parseEther("10000"));
       await token2.connect(user).approve(poolAddress, ethers.parseEther("10000"));
       
-      // Add liquidity to token1-token2 pool
+      // Add liquidity to token1-token2 pool - this is direct Pool call, no need for minLpAmount
       await pool.connect(user).addLiquidityFromToken0(ethers.parseEther("100"));
     });
     
@@ -447,8 +574,9 @@ describe("Router Contract", function () {
       const token0Address = await token0.getAddress();
       const token1Address = await token1.getAddress();
       const amount0 = ethers.parseEther("100");
+      const minLpAmount = ethers.parseEther("90"); // Add min LP amount
       
-      await router.connect(user).addLiquidityFromToken0(token0Address, token1Address, amount0);
+      await router.connect(user).addLiquidityFromToken0(token0Address, token1Address, amount0, minLpAmount);
     });
     
     it("should return the correct output amount and fee", async function () {
@@ -504,7 +632,8 @@ describe("Router Contract", function () {
       pool = Pool.attach(poolAddress);
       
       // Add initial liquidity
-      await router.connect(user).addLiquidityFromToken0(token0Address, token1Address, ethers.parseEther("1000"));
+      const minLpAmount = ethers.parseEther("90"); // Add min LP amount
+      await router.connect(user).addLiquidityFromToken0(token0Address, token1Address, ethers.parseEther("1000"), minLpAmount);
       
       // Set a fee rate to generate fees (0.3%)
       await pool.setFeeRate(30);
@@ -708,8 +837,10 @@ describe("Router Contract", function () {
       await token1.connect(user).approve(await router.getAddress(), ethers.parseEther("10000"));
       await token2.connect(user).approve(await router.getAddress(), ethers.parseEther("10000"));
       
+      const minLpAmount = ethers.parseEther("90"); // Add min LP amount
+      
       // Add liquidity to token0-token1 pool
-      await router.connect(user).addLiquidityFromToken0(token0Address, token1Address, ethers.parseEther("100"));
+      await router.connect(user).addLiquidityFromToken0(token0Address, token1Address, ethers.parseEther("1000"), minLpAmount);
       
       // Create and add liquidity to token1-token2 pool
       await router.createPool(token1Address, token2Address);
@@ -725,7 +856,7 @@ describe("Router Contract", function () {
       await token1.connect(user).approve(poolAddress, ethers.parseEther("10000"));
       await token2.connect(user).approve(poolAddress, ethers.parseEther("10000"));
       
-      // Add liquidity to token1-token2 pool
+      // Add liquidity to token1-token2 pool - this is direct Pool call, no need for minLpAmount
       await pool.connect(user).addLiquidityFromToken0(ethers.parseEther("100"));
     });
     
