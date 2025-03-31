@@ -457,4 +457,47 @@ describe("Pool Contract", function () {
       });
     });
   });
+
+  describe("Getter functions", function () {
+    it("should correctly return current fee rate", async function () {
+      // Check initial fee rate
+      const initialFeeRate = await pool.getFeeRate();
+      expect(initialFeeRate).to.equal(0); // Default fee rate is 0
+      
+      // Set fee rate to 30 basis points (0.3%)
+      await pool.connect(deployer).setFeeRate(30);
+      
+      // Check fee rate after update
+      const updatedFeeRate = await pool.getFeeRate();
+      expect(updatedFeeRate).to.equal(30);
+    });
+
+    it("should correctly return current fee admin", async function () {
+      // Check initial fee admin
+      const initialFeeAdmin = await pool.getFeeAdmin();
+      expect(initialFeeAdmin).to.equal(deployer.address);
+      
+      // Set a new fee admin
+      await pool.connect(deployer).setFeeAdmin(user.address);
+      
+      // Check fee admin after update
+      const updatedFeeAdmin = await pool.getFeeAdmin();
+      expect(updatedFeeAdmin).to.equal(user.address);
+    });
+
+    it("should return values consistent with state variables", async function () {
+      // Set fee rate to 50 basis points (0.5%)
+      await pool.connect(deployer).setFeeRate(50);
+      
+      // Compare getter function with direct state variable access
+      const feeRateFromGetter = await pool.getFeeRate();
+      const feeRateFromState = await pool.feeRate();
+      expect(feeRateFromGetter).to.equal(feeRateFromState);
+      
+      // Compare fee admin getter with direct state variable access
+      const feeAdminFromGetter = await pool.getFeeAdmin();
+      const feeAdminFromState = await pool.feeAdmin();
+      expect(feeAdminFromGetter).to.equal(feeAdminFromState);
+    });
+  });
 });
