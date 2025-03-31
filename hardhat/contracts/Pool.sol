@@ -229,6 +229,55 @@ contract Pool is LPToken, ReentrancyGuard {
         );
     }
 
+    function addLiquidityFromToken1(uint256 amount1) public nonReentrant {
+        // input validity check
+        require(amount1 > 0, "Amount must be greater than 0");
+
+        // calculate and mint liquidity tokens
+        uint256 amount0 = getRequiredAmount0(amount1);
+        uint256 amountLP;
+        if (totalSupply() > 0) {
+            amountLP =
+                (amount1 * totalSupply()) /
+                tokenBalances[i_token1_address];
+        } else {
+            amountLP = amount1 / INITIAL_RATIO; // Adjusted for initial ratio
+        }
+        _mint(msg.sender, amountLP);
+
+        // deposit token1
+        require(
+            i_token1.transferFrom(msg.sender, address(this), amount1),
+            "Transfer Beta failed"
+        );
+        tokenBalances[i_token1_address] += amount1;
+
+        // deposit token0
+        require(
+            i_token0.transferFrom(msg.sender, address(this), amount0),
+            "Transfer Alpha failed"
+        );
+        tokenBalances[i_token0_address] += amount0;
+
+        emit AddedLiquidity(
+            amountLP,
+            i_token0_address,
+            amount0,
+            i_token1_address,
+            amount1
+        );
+    }
+
+    function getRequiredAmount0(uint256 amount1) public view returns (uint256) {
+        uint256 balance0 = tokenBalances[i_token0_address];
+        uint256 balance1 = tokenBalances[i_token1_address];
+
+        if (balance0 == 0 || balance1 == 0) {
+            return amount1 / INITIAL_RATIO; // Initial ratio is token0:token1 = 1:2
+        }
+        return (amount1 * balance0) / balance1;
+    }
+    
     function getRequiredAmount1(uint256 amount0) public view returns (uint256) {
         uint256 balance0 = tokenBalances[i_token0_address];
         uint256 balance1 = tokenBalances[i_token1_address];
