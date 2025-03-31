@@ -119,6 +119,36 @@ contract Pool is LPToken, ReentrancyGuard {
     emit Swapped(tokenIn, amountIn, tokenOut, amountOut);
     }
 
+    function getLPBalance(address user) external view returns (uint256) {
+        return balanceOf(user);
+    }
+
+    function getUserLiquidityPosition(address user) external view returns (uint256 amount0, uint256 amount1) {
+        uint256 lpBalance = balanceOf(user);
+        if (lpBalance == 0 || totalSupply() == 0) {
+            return (0, 0);
+        }
+        
+        // Calculate the proportion of the pool the user owns
+        uint256 totalLP = totalSupply();
+        amount0 = (lpBalance * tokenBalances[i_token0_address]) / totalLP;
+        amount1 = (lpBalance * tokenBalances[i_token1_address]) / totalLP;
+        
+        return (amount0, amount1);
+    }
+
+    function getUserPoolShare(address user) external view returns (uint256) {
+        uint256 lpBalance = balanceOf(user);
+        uint256 totalLP = totalSupply();
+        
+        if (totalLP == 0) {
+            return 0;
+        }
+        
+        // Return user's share in basis points (1/100 of a percent)
+        return (lpBalance * 10000) / totalLP;
+    }
+
     // Function for liquidity providers to claim their share of fees
     function claimFees() external nonReentrant returns (uint256 fee0, uint256 fee1) {
         uint256 userLpBalance = balanceOf(msg.sender);
