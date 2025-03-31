@@ -4,6 +4,7 @@ const { ethers } = require("hardhat");
 describe("Router Contract", function () {
   let Token0, Token1, Token2, PoolFactory, Pool, Router;
   let token0, token1, token2, factory, router;
+  let token0Address, token1Address, token2Address;
   let owner, user;
   let globalSnapshotId;
   
@@ -13,20 +14,48 @@ describe("Router Contract", function () {
     
     [owner, user] = await ethers.getSigners();
     
-    // Deploy tokens for testing with UNIQUE names to avoid collision with other tests
+    // Deploy tokens for testing
     const NewToken = await hre.ethers.getContractFactory("NewToken");
     
-    // Deploy Alpha with a unique name for this test file
-    token0 = await NewToken.deploy("RouterAlpha", "RALPHA");
-    await token0.waitForDeployment();
+    // Deploy tokens with unique names for this test file
+    const tokenA = await NewToken.deploy("RouterTokenA", "RTA");
+    await tokenA.waitForDeployment();
     
-    // Deploy Beta with a unique name for this test file
-    token1 = await NewToken.deploy("RouterBeta", "RBETA");
-    await token1.waitForDeployment();
+    const tokenB = await NewToken.deploy("RouterTokenB", "RTB");
+    await tokenB.waitForDeployment();
     
-    // Deploy Gamma (for multi-hop tests) with a unique name for this test file
-    token2 = await NewToken.deploy("RouterGamma", "RGAMMA");
-    await token2.waitForDeployment();
+    const tokenC = await NewToken.deploy("RouterTokenC", "RTC");
+    await tokenC.waitForDeployment();
+    
+    // Get token addresses
+    const addrA = await tokenA.getAddress();
+    const addrB = await tokenB.getAddress();
+    const addrC = await tokenC.getAddress();
+    
+    // console.log(`Token addresses in Router test: ${addrA}, ${addrB}, ${addrC}`);
+    
+    // Sort tokens by address to ensure consistency with Pool contract's sorting
+    // Sort tokens 0 and 1 to match pool creation requirements
+    if (addrA.toLowerCase() < addrB.toLowerCase()) {
+      token0 = tokenA;
+      token1 = tokenB;
+    } else {
+      token0 = tokenB;
+      token1 = tokenA;
+    }
+    
+    // Ensure token2 is for multi-hop tests
+    token2 = tokenC;
+    
+    // Get sorted addresses for consistent use
+    token0Address = await token0.getAddress();
+    token1Address = await token1.getAddress();
+    token2Address = await token2.getAddress();
+
+    // console.log(`Sorted token addresses: token0=${token0Address}, token1=${token1Address}, token2=${token2Address}`);
+    
+    // Verify token order is correct for Pool contract
+    expect(token0Address.toLowerCase() < token1Address.toLowerCase()).to.be.true;
     
     // Deploy the PoolFactory
     PoolFactory = await hre.ethers.getContractFactory("PoolFactory");
@@ -38,18 +67,21 @@ describe("Router Contract", function () {
     router = await Router.deploy(await factory.getAddress());
     await router.waitForDeployment();
     
-    // Send more tokens to user for testing
+    // Send tokens to user for testing
     await token0.transfer(user.address, ethers.parseEther("10000"));
     await token1.transfer(user.address, ethers.parseEther("10000"));
     await token2.transfer(user.address, ethers.parseEther("10000"));
     
     // Create a pool through the factory (will use in some tests)
-    await factory.createPool(await token0.getAddress(), await token1.getAddress());
+    await factory.createPool(token0Address, token1Address);
   });
   
   after(async function () {
     // Revert to the global snapshot after all tests in this file
     await ethers.provider.send("evm_revert", [globalSnapshotId]);
+    
+    // Take a new snapshot for subsequent test files
+    await ethers.provider.send("evm_snapshot", []);
   });
   
   let snapshotId;
@@ -59,9 +91,9 @@ describe("Router Contract", function () {
     snapshotId = await ethers.provider.send("evm_snapshot", []);
     
     // Approve tokens for the router with a much higher amount to guarantee no allowance issues
-    await token0.connect(user).approve(await router.getAddress(), ethers.parseEther("1000000"));
-    await token1.connect(user).approve(await router.getAddress(), ethers.parseEther("1000000"));
-    await token2.connect(user).approve(await router.getAddress(), ethers.parseEther("1000000"));
+    await token0.connect(user).approve(await router.getAddress(), ethers.parseEther("10000000"));
+    await token1.connect(user).approve(await router.getAddress(), ethers.parseEther("10000000")); 
+    await token2.connect(user).approve(await router.getAddress(), ethers.parseEther("10000000"));
   });
   
   afterEach(async function () {
@@ -317,6 +349,7 @@ describe("Router Contract", function () {
       // Create and add liquidity to token0-token1 pool
       const token0Address = await token0.getAddress();
       const token1Address = await token1.getAddress();
+      const token2Address = await token2.getAddress();
       
       // Transfer more tokens to the user for multi-hop tests
       await token0.transfer(user.address, ethers.parseEther("1000"));
@@ -324,15 +357,14 @@ describe("Router Contract", function () {
       await token2.transfer(user.address, ethers.parseEther("1000"));
       
       // Re-approve tokens with higher amounts for multi-hop tests
-      await token0.connect(user).approve(await router.getAddress(), ethers.parseEther("2000"));
-      await token1.connect(user).approve(await router.getAddress(), ethers.parseEther("2000"));
-      await token2.connect(user).approve(await router.getAddress(), ethers.parseEther("2000"));
+      await token0.connect(user).approve(await router.getAddress(), ethers.parseEther("10000"));
+      await token1.connect(user).approve(await router.getAddress(), ethers.parseEther("10000"));
+      await token2.connect(user).approve(await router.getAddress(), ethers.parseEther("10000"));
       
       // Add liquidity to token0-token1 pool
       await router.connect(user).addLiquidityFromToken0(token0Address, token1Address, ethers.parseEther("100"));
       
       // Create and add liquidity to token1-token2 pool
-      const token2Address = await token2.getAddress();
       await router.createPool(token1Address, token2Address);
       
       // Get pool address to approve tokens directly for the pool
@@ -342,9 +374,9 @@ describe("Router Contract", function () {
       const Pool = await hre.ethers.getContractFactory("Pool");
       const pool = Pool.attach(poolAddress);
       
-      // Approve tokens directly for the pool
-      await token1.connect(user).approve(poolAddress, ethers.parseEther("2000"));
-      await token2.connect(user).approve(poolAddress, ethers.parseEther("2000"));
+      // Approve tokens directly for the pool with much higher amounts
+      await token1.connect(user).approve(poolAddress, ethers.parseEther("10000"));
+      await token2.connect(user).approve(poolAddress, ethers.parseEther("10000"));
       
       // Add liquidity to token1-token2 pool
       await pool.connect(user).addLiquidityFromToken0(ethers.parseEther("100"));
@@ -379,7 +411,7 @@ describe("Router Contract", function () {
       expect(balance2After - balance2Before).to.be.gte(minAmountOut); // User received token2
       
       // Optional: log the actual output amount for reference
-      console.log(`Multi-hop swap output: ${ethers.formatEther(balance2After - balance2Before)} Token2`);
+      // console.log(`Multi-hop swap output: ${ethers.formatEther(balance2After - balance2Before)} Token2`);
     });
     
     it("should revert with invalid path", async function () {
