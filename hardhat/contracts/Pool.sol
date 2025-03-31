@@ -47,28 +47,28 @@ contract Pool is LPToken, ReentrancyGuard {
         address feeAdmin
     );
 
-    constructor(address token0, address token1) LPToken(
-        string(abi.encodePacked("LP-", ERC20(token0).symbol(), "-", ERC20(token1).symbol())),
-        string(abi.encodePacked("LP-", ERC20(token0).symbol(), "-", ERC20(token1).symbol()))
+    constructor(address _token0, address _token1) LPToken(
+        string(abi.encodePacked("LP-", ERC20(_token0).symbol(), "-", ERC20(_token1).symbol())),
+        string(abi.encodePacked("LP-", ERC20(_token0).symbol(), "-", ERC20(_token1).symbol()))
     ) {
         // Add validation for token addresses
-        require(token0 != address(0) && token1 != address(0), "Zero address");
-        require(token0 != token1, "Same token");
+        require(_token0 != address(0) && _token1 != address(0), "Zero address");
+        require(_token0 != _token1, "Same token");
         
         // Store factory address that created this pool
         factory = msg.sender;
         
         // Ensure the tokens are in the correct order
-        (address _token0, address _token1) = token0 < token1 ? (token0, token1) : (token1, token0);
+        (address tokenA, address tokenB) = _token0 < _token1 ? (_token0, _token1) : (_token1, _token0);
         
-        i_token0 = IERC20(_token0);
-        i_token1 = IERC20(_token1);
+        i_token0 = IERC20(tokenA);
+        i_token1 = IERC20(tokenB);
 
         // Get fee admin from factory
         feeAdmin = IPoolFactory(factory).feeAdmin();
         
         // Emit pool created event
-        emit PoolCreated(_token0, _token1, factory, feeAdmin);
+        emit PoolCreated(tokenA, tokenB, factory, feeAdmin);
     }
 
     // Add accessor functions to replace the redundant immutable address variables
