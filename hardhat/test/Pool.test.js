@@ -62,7 +62,7 @@ describe("Pool Contract", function () {
     it("should add initial liquidity and mint LP tokens", async function () {
 
       const amount0 = ethers.parseEther("100");
-      const tx = await pool.connect(user).addLiquidity(amount0);
+      const tx = await pool.connect(user).addLiquidityFromToken0(amount0);
       
       // Check LP tokens minted
       const lpBalance = await pool.balanceOf(user.address);
@@ -82,11 +82,11 @@ describe("Pool Contract", function () {
     it("should add liquidity proportionally when pool has reserves", async function () {
       // Initial liquidity
       const amount0 = ethers.parseEther("100");
-      await pool.connect(user).addLiquidity(amount0);
+      await pool.connect(user).addLiquidityFromToken0(amount0);
 
       // Additional liquidity
       const addAmount0 = ethers.parseEther("50");
-      const tx = await pool.connect(user).addLiquidity(addAmount0);
+      const tx = await pool.connect(user).addLiquidityFromToken0(addAmount0);
 
       // Expected LP tokens: (50 * 100) / 100 = 50
       const expectedLP = addAmount0;
@@ -105,7 +105,7 @@ describe("Pool Contract", function () {
     });
 
     it("should revert when adding zero liquidity", async function () {
-      await expect(pool.connect(user).addLiquidity(0))
+      await expect(pool.connect(user).addLiquidityFromToken0(0))
         .to.be.revertedWith("Amount must be greater than 0");
     });
   });
@@ -113,7 +113,7 @@ describe("Pool Contract", function () {
   describe("swap", function () {
     beforeEach(async function () {
       // Add initial liquidity: 100 Token0, 200 Token1
-      await pool.connect(user).addLiquidity(ethers.parseEther("100"));
+      await pool.connect(user).addLiquidityFromToken0(ethers.parseEther("100"));
     });
 
     it("should swap Alpha for Beta correctly", async function () {
@@ -159,7 +159,7 @@ describe("Pool Contract", function () {
     });
 
     it("should return proportional amount when pool has reserves", async function () {
-      await pool.connect(user).addLiquidity(ethers.parseEther("100"));
+      await pool.connect(user).addLiquidityFromToken0(ethers.parseEther("100"));
       const amount0 = ethers.parseEther("50");
       const requiredAmount1 = await pool.getRequiredAmount1(amount0);
       expect(requiredAmount1).to.equal(ethers.parseEther("100")); // (50 * 200) / 100
@@ -168,7 +168,7 @@ describe("Pool Contract", function () {
 
   describe("getAmountOut", function () {
     beforeEach(async function () {
-      await pool.connect(user).addLiquidity(ethers.parseEther("100"));
+      await pool.connect(user).addLiquidityFromToken0(ethers.parseEther("100"));
     });
 
     it("should calculate correct output for Token0 to Token1", async function () {
@@ -191,7 +191,7 @@ describe("Pool Contract", function () {
   describe("previewWithdraw", function () {
     beforeEach(async function () {
       // Add initial liquidity: 100 Token0, 200 Token1
-      await pool.connect(user).addLiquidity(ethers.parseEther("100"));
+      await pool.connect(user).addLiquidityFromToken0(ethers.parseEther("100"));
       
       // Add approvals for deployer
       await token0.connect(deployer).approve(pool.getAddress(), ethers.parseEther("1000000"));
@@ -211,7 +211,7 @@ describe("Pool Contract", function () {
     it("should calculate proportional amounts when there are multiple liquidity providers", async function () {
       // Add more liquidity from another account
       const addAmount0 = ethers.parseEther("50");
-      await pool.connect(deployer).addLiquidity(addAmount0);
+      await pool.connect(deployer).addLiquidityFromToken0(addAmount0);
       
       // Total reserves now: 150 Token0, 300 Token1
       // Total LP supply: 150
@@ -278,7 +278,7 @@ describe("Pool Contract", function () {
 
   describe("getAmountOut with fees", function () {
     beforeEach(async function () {
-      await pool.connect(user).addLiquidity(ethers.parseEther("100"));
+      await pool.connect(user).addLiquidityFromToken0(ethers.parseEther("100"));
       // Set fee to 0.3% (30 basis points)
       await pool.connect(deployer).setFeeRate(30);
     });
@@ -301,7 +301,7 @@ describe("Pool Contract", function () {
 
   describe("swap with fees", function () {
     beforeEach(async function () {
-      await pool.connect(user).addLiquidity(ethers.parseEther("100"));
+      await pool.connect(user).addLiquidityFromToken0(ethers.parseEther("100"));
       // Set fee to 0.3% (30 basis points)
       await pool.connect(deployer).setFeeRate(30);
     });
@@ -326,7 +326,7 @@ describe("Pool Contract", function () {
   describe("LP token information functions", function () {
     beforeEach(async function () {
       // Add initial liquidity from user: 100 Token0, 200 Token1
-      await pool.connect(user).addLiquidity(ethers.parseEther("100"));
+      await pool.connect(user).addLiquidityFromToken0(ethers.parseEther("100"));
     });
     
     describe("getLPBalance", function () {
@@ -358,7 +358,7 @@ describe("Pool Contract", function () {
         // Add more liquidity from deployer (50 Token0, 100 Token1)
         await token0.connect(deployer).approve(pool.getAddress(), ethers.parseEther("1000000"));
         await token1.connect(deployer).approve(pool.getAddress(), ethers.parseEther("1000000"));
-        await pool.connect(deployer).addLiquidity(ethers.parseEther("50"));
+        await pool.connect(deployer).addLiquidityFromToken0(ethers.parseEther("50"));
         
         // Check user's position (should have 2/3 of the pool)
         const [userAmount0, userAmount1] = await pool.getUserLiquidityPosition(user.address);
@@ -387,7 +387,7 @@ describe("Pool Contract", function () {
         // Add more liquidity from deployer (100 Token0, 200 Token1)
         await token0.connect(deployer).approve(pool.getAddress(), ethers.parseEther("1000000"));
         await token1.connect(deployer).approve(pool.getAddress(), ethers.parseEther("1000000"));
-        await pool.connect(deployer).addLiquidity(ethers.parseEther("100"));
+        await pool.connect(deployer).addLiquidityFromToken0(ethers.parseEther("100"));
         
         // Check user's share (should be 50%)
         const userShare = await pool.getUserPoolShare(user.address);
