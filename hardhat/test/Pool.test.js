@@ -11,7 +11,7 @@ describe("Pool Contract", function () {
   before(async function () {
 
     // Deploy two tokens
-    NewToken = await hre.ethers.getContractFactory("NewToken");
+    const NewToken = await hre.ethers.getContractFactory("NewToken");
     
     // Deploy Alpha
     token0 = await NewToken.deploy("Alpha", "ALPHA");
@@ -173,7 +173,7 @@ describe("Pool Contract", function () {
 
     it("should calculate correct output for Token0 to Token1", async function () {
       const amountIn = ethers.parseEther("100");
-      const amountOut = await pool.getAmountOut(token0.getAddress(), amountIn, token1.getAddress());
+      const [amountOut, feeAmount] = await pool.getAmountOut(token0.getAddress(), amountIn, token1.getAddress());
       expect(amountOut).to.equal(ethers.parseEther("100")); // (200 * 100) / (100 + 100)
     });
 
@@ -182,9 +182,145 @@ describe("Pool Contract", function () {
       await pool.connect(user).swap(token0.getAddress(), ethers.parseEther("100"), token1.getAddress());
 
       const amountIn = ethers.parseEther("50");
-      const amountOut = await pool.getAmountOut(token1.getAddress(), amountIn, token0.getAddress());
+      const [amountOut, feeAmount] = await pool.getAmountOut(token1.getAddress(), amountIn, token0.getAddress());
       const expected = amountIn * 200n / (100n + 50n); // (200 * 50) / 150 ≈ 66.666...
       expect(amountOut).to.equal(expected);
+    });
+  });
+  
+  describe("previewWithdraw", function () {
+    beforeEach(async function () {
+      // Add initial liquidity: 100 Token0, 200 Token1
+      await pool.connect(user).addLiquidity(ethers.parseEther("100"));
+      
+      // Add approvals for deployer
+      await token0.connect(deployer).approve(pool.getAddress(), ethers.parseEther("1000000"));
+      await token1.connect(deployer).approve(pool.getAddress(), ethers.parseEther("1000000"));
+    });
+  
+    it("should correctly calculate withdrawal amounts", async function () {
+      // Check for half the LP tokens
+      const lpAmount = ethers.parseEther("50");
+      const [amount0, amount1] = await pool.previewWithdraw(lpAmount);
+      
+      // Should get 50% of reserves
+      expect(amount0).to.equal(ethers.parseEther("50")); // 50% of 100
+      expect(amount1).to.equal(ethers.parseEther("100")); // 50% of 200
+    });
+  
+    it("should calculate proportional amounts when there are multiple liquidity providers", async function () {
+      // Add more liquidity from another account
+      const addAmount0 = ethers.parseEther("50");
+      await pool.connect(deployer).addLiquidity(addAmount0);
+      
+      // Total reserves now: 150 Token0, 300 Token1
+      // Total LP supply: 150
+      
+      // Preview withdrawing user's original 100 LP tokens
+      const lpAmount = ethers.parseEther("100");
+      const [amount0, amount1] = await pool.previewWithdraw(lpAmount);
+      
+      // Should get 100/150 = 2/3 of reserves
+      expect(amount0).to.equal(ethers.parseEther("100")); // 2/3 of 150
+      expect(amount1).to.equal(ethers.parseEther("200")); // 2/3 of 300
+    });
+  
+    it("should revert when preview amount is zero", async function () {
+      await expect(pool.previewWithdraw(0))
+        .to.be.revertedWith("Amount must be greater than 0");
+    });
+  });
+
+  describe("Fee management", function () {
+    it("should initialize with deployer as fee admin", async function () {
+      const admin = await pool.feeAdmin();
+      expect(admin).to.equal(deployer.address);
+    });
+
+    it("should initialize with 0% fee rate", async function () {
+      const feeRate = await pool.feeRate();
+      expect(feeRate).to.equal(0);
+    });
+
+    it("should allow fee admin to set fee rate", async function () {
+      // Set fee to 0.3% (30 basis points)
+      const tx = await pool.connect(deployer).setFeeRate(30);
+      
+      const newFeeRate = await pool.feeRate();
+      expect(newFeeRate).to.equal(30);
+      
+      await expect(tx)
+        .to.emit(pool, "FeeRateUpdated")
+        .withArgs(30);
+    });
+
+    it("should revert when non-admin tries to set fee rate", async function () {
+      await expect(pool.connect(user).setFeeRate(30))
+        .to.be.revertedWith("Only fee admin can update fee rate");
+    });
+
+    it("should allow fee admin to transfer admin role", async function () {
+      const tx = await pool.connect(deployer).setFeeAdmin(user.address);
+      
+      const newAdmin = await pool.feeAdmin();
+      expect(newAdmin).to.equal(user.address);
+      
+      await expect(tx)
+        .to.emit(pool, "FeeAdminUpdated")
+        .withArgs(user.address);
+    });
+
+    it("should revert when fee rate exceeds 1%", async function () {
+      await expect(pool.connect(deployer).setFeeRate(101))
+        .to.be.revertedWith("Fee rate cannot exceed 1%");
+    });
+  });
+
+  describe("getAmountOut with fees", function () {
+    beforeEach(async function () {
+      await pool.connect(user).addLiquidity(ethers.parseEther("100"));
+      // Set fee to 0.3% (30 basis points)
+      await pool.connect(deployer).setFeeRate(30);
+    });
+
+    it("should calculate output accounting for fees", async function () {
+      const amountIn = ethers.parseEther("100");
+      const [amountOut, feeAmount] = await pool.getAmountOut(token0.getAddress(), amountIn, token1.getAddress());
+      
+      // Fee-adjusted calculation: 
+      // amountInWithFee = 100 * (10000 - 30) / 10000 = 99.7 ETH
+      // amountOut = (200 * 99.7) / (100 + 99.7) = 99.7 ETH
+      const expectedAmountInWithFee = amountIn * (10000n - 30n) / 10000n;
+      const expectedAmountOut = ethers.parseEther("200") * expectedAmountInWithFee / 
+                               (ethers.parseEther("100") + expectedAmountInWithFee);
+      const expectedFeeAmount = amountIn - expectedAmountInWithFee;
+      expect(amountOut).to.equal(expectedAmountOut);
+      expect(feeAmount).to.equal(expectedFeeAmount);
+    });
+  });
+
+  describe("swap with fees", function () {
+    beforeEach(async function () {
+      await pool.connect(user).addLiquidity(ethers.parseEther("100"));
+      // Set fee to 0.3% (30 basis points)
+      await pool.connect(deployer).setFeeRate(30);
+    });
+
+    it("should swap with fee applied", async function () {
+      const initialBalance1 = await token1.balanceOf(user.address);
+      
+      const amountIn = ethers.parseEther("100");
+      await pool.connect(user).swap(token0.getAddress(), amountIn, token1.getAddress());
+      
+      const finalBalance1 = await token1.balanceOf(user.address);
+      const receivedAmount = finalBalance1 - initialBalance1;
+      
+      // Calculate expected output with 0.3% fee
+      const amountInWithFee = amountIn * (10000n - 30n) / 10000n;
+      const expectedOutput = ethers.parseEther("200") * amountInWithFee / 
+                           (ethers.parseEther("100") + amountInWithFee);
+      
+      expect(receivedAmount).to.equal(expectedOutput);
     });
   });
   
