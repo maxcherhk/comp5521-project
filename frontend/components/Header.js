@@ -1,8 +1,20 @@
 "use client";
 
 import React, { useState } from "react";
-import { AppBar, Toolbar, Typography, Button, Menu, MenuItem, Box, TextField, IconButton } from "@mui/material";
+import {
+	AppBar,
+	Toolbar,
+	Typography,
+	Button,
+	Menu,
+	MenuItem,
+	Box,
+	Input,
+	IconButton,
+	InputAdornment,
+} from "@mui/material";
 import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
+import SearchIcon from "@mui/icons-material/Search";
 
 export default function Header() {
 	const [anchorEl, setAnchorEl] = useState(null);
@@ -19,6 +31,24 @@ export default function Header() {
 	};
 
 	const renderMenu = (type) => {
+		const menuItems = {
+			Trade: [
+				{ label: "Swap", route: "/swap" },
+				{ label: "Limit", route: "/limit" },
+				{ label: "Send", route: "/send" },
+				{ label: "Buy", route: "/buy" },
+			],
+			Explore: [
+				{ label: "Tokens", route: "#" },
+				{ label: "Pools", route: "#" },
+				{ label: "Transactions", route: "#" },
+			],
+			Pool: [
+				{ label: "View Positions", route: "#" },
+				{ label: "Create Position", route: "#" },
+			],
+		};
+
 		return (
 			<Menu
 				anchorEl={anchorEl}
@@ -29,9 +59,17 @@ export default function Header() {
 					horizontal: "left",
 				}}
 			>
-				<MenuItem onClick={handleClose}>Placeholder 1</MenuItem>
-				<MenuItem onClick={handleClose}>Placeholder 2</MenuItem>
-				<MenuItem onClick={handleClose}>Placeholder 3</MenuItem>
+				{menuItems[type]?.map((item) => (
+					<MenuItem
+						key={item.label}
+						onClick={() => {
+							handleClose();
+							window.location.href = item.route; // Navigate to the route
+						}}
+					>
+						{item.label}
+					</MenuItem>
+				))}
 			</Menu>
 		);
 	};
@@ -41,6 +79,10 @@ export default function Header() {
 			<Toolbar sx={{ justifyContent: "space-between" }}>
 				{/* Left Section: Navigation */}
 				<Box display="flex" alignItems="center" gap={2}>
+					{/* Home Button */}
+					<Button onClick={() => (window.location.href = "/")} sx={{ fontWeight: "bold" }}>
+						Home
+					</Button>
 					{["Trade", "Explore", "Pool"].map((label) => (
 						<Box key={label}>
 							<Button onClick={(e) => handleMenuClick(e, label)} endIcon={<ArrowDropDownIcon />}>
@@ -52,8 +94,28 @@ export default function Header() {
 				</Box>
 
 				{/* Center: Search */}
-				<Box sx={{ flexGrow: 1, display: "flex", justifyContent: "center" }}>
-					<TextField size="small" placeholder="Search tokens" sx={{ width: 300 }} variant="outlined" />
+				<Box
+					sx={{
+						position: "absolute",
+						left: "50%",
+						transform: "translateX(-50%)",
+					}}
+				>
+					<Input
+						placeholder="Search tokens"
+						startAdornment={
+							<InputAdornment position="start">
+								<SearchIcon sx={{ color: "gray" }} />
+							</InputAdornment>
+						}
+						sx={{
+							width: 300,
+							border: "1px solid #ccc",
+							borderRadius: 1,
+							padding: "4px 8px",
+						}}
+						disableUnderline
+					/>
 				</Box>
 
 				{/* Right: Connect Button */}

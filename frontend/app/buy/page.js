@@ -6,13 +6,15 @@ import BuyBox from "@/components/BuyBox";
 
 export default function BuyPage() {
 	return (
-		<Container>
+		<>
 			<Header />
-			<Box mt={6}>
-				<TradeBox>
-					<BuyBox />
-				</TradeBox>
-			</Box>
-		</Container>
+			<Container>
+				<Box mt={6}>
+					<TradeBox>
+						<BuyBox />
+					</TradeBox>
+				</Box>
+			</Container>
+		</>
 	);
 }

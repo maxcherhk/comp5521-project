@@ -7,13 +7,15 @@ import TradeBox from "@/components/TradeBox";
 
 export default function SwapPage() {
 	return (
-		<Container>
+		<>
 			<Header />
-			<Box mt={6}>
-				<TradeBox>
-					<SwapBox />
-				</TradeBox>
-			</Box>
-		</Container>
+			<Container>
+				<Box mt={6}>
+					<TradeBox>
+						<SwapBox />
+					</TradeBox>
+				</Box>
+			</Container>
+		</>
 	);
 }
