@@ -1,24 +1,18 @@
 "use client";
 
 import React, { useState } from "react";
-import {
-	AppBar,
-	Toolbar,
-	Typography,
-	Button,
-	Menu,
-	MenuItem,
-	Box,
-	Input,
-	IconButton,
-	InputAdornment,
-} from "@mui/material";
+import { AppBar, Toolbar, Button, Menu, MenuItem, Box, Input, InputAdornment } from "@mui/material";
 import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
 import SearchIcon from "@mui/icons-material/Search";
+import { useWallet } from "../context/WalletContext"; // Import WalletContext
 
 export default function Header() {
 	const [anchorEl, setAnchorEl] = useState(null);
 	const [menuType, setMenuType] = useState(null);
+	const [walletMenuAnchor, setWalletMenuAnchor] = useState(null); // Anchor for wallet menu
+
+	// Access wallet state from WalletContext
+	const { isWalletConnected, account, connectWallet, disconnectWallet } = useWallet();
 
 	const handleMenuClick = (event, type) => {
 		setAnchorEl(event.currentTarget);
@@ -28,6 +22,14 @@ export default function Header() {
 	const handleClose = () => {
 		setAnchorEl(null);
 		setMenuType(null);
+	};
+
+	const handleWalletMenuOpen = (event) => {
+		setWalletMenuAnchor(event.currentTarget);
+	};
+
+	const handleWalletMenuClose = () => {
+		setWalletMenuAnchor(null);
 	};
 
 	const renderMenu = (type) => {
@@ -118,11 +120,36 @@ export default function Header() {
 					/>
 				</Box>
 
-				{/* Right: Connect Button */}
+				{/* Right: Wallet Button */}
 				<Box>
-					<Button variant="contained" color="primary">
-						Connect
-					</Button>
+					{isWalletConnected ? (
+						<>
+							<Button
+								variant="contained"
+								color="primary"
+								onClick={handleWalletMenuOpen} // Open wallet menu
+							>
+								{/* Display wallet address in XXXXX..XXXX format */}
+								{`${account.slice(0, 7)}...${account.slice(-5)}`}
+							</Button>
+							<Menu
+								anchorEl={walletMenuAnchor}
+								open={Boolean(walletMenuAnchor)}
+								onClose={handleWalletMenuClose}
+								anchorOrigin={{
+									vertical: "bottom",
+									horizontal: "right",
+								}}
+							>
+								<MenuItem onClick={() => alert("View Wallet Details")}>View Wallet Details</MenuItem>
+								<MenuItem onClick={disconnectWallet}>Disconnect</MenuItem>
+							</Menu>
+						</>
+					) : (
+						<Button variant="contained" color="primary" onClick={connectWallet}>
+							Connect
+						</Button>
+					)}
 				</Box>
 			</Toolbar>
 		</AppBar>
