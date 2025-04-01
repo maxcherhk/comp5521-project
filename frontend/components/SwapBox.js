@@ -1,10 +1,17 @@
 "use client";
 
 import React, { useState } from "react";
-import { Box, Typography, TextField, Button, ToggleButtonGroup, ToggleButton, IconButton, Menu, MenuItem, Card } from "@mui/material";
-import SettingsIcon from "@mui/icons-material/Settings";
+import { Box, Typography, TextField, Button, Menu, MenuItem, Input } from "@mui/material";
 import { ethers } from "ethers";
-import { getAmountOut, getContracts, getPoolInfo, getTokenBalances, getRequiredAmount1, swapTokens, addLiquidity } from "../utils/contract"; // Import helper functions
+import {
+	getAmountOut,
+	getContracts,
+	getPoolInfo,
+	getTokenBalances,
+	getRequiredAmount1,
+	swapTokens,
+	addLiquidity,
+} from "../utils/contract"; // Import helper functions
 import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
 
 const tokens = ["ETH", "DAI", "USDC"];
@@ -131,15 +138,21 @@ export default function SwapBox() {
 
 			{/* Arrow */}
 			<Box display="flex" justifyContent="center">
-				<Box
+				<Button
 					sx={{
 						background: "#1e1e1e",
-						borderRadius: "50%",
-						p: 1,
+						borderRadius: "50%", // Makes the button circular
+						width: 48, // Explicitly set width
+						height: 48, // Match height to width for a perfect circle
+						display: "flex", // Center the icon
+						alignItems: "center",
+						justifyContent: "center",
+						minWidth: 0, // Prevents Material-UI's default button width
+						padding: 0, // Removes extra padding
 					}}
 				>
 					<ArrowDownwardIcon />
-				</Box>
+				</Button>
 			</Box>
 
 			{/* Buy Box */}
@@ -154,10 +167,10 @@ export default function SwapBox() {
 					Buy
 				</Typography>
 				<Box display="flex" alignItems="center" justifyContent="space-between" mt={1}>
-					<TextField
+					<Input
 						variant="standard"
 						placeholder="0"
-						InputProps={{ disableUnderline: true }}
+						disableUnderline
 						sx={{
 							input: { fontSize: 28, color: "white" },
 							width: "70%",
@@ -177,6 +190,9 @@ export default function SwapBox() {
 						{buyToken || "Select token"}
 					</Button>
 				</Box>
+				<Typography variant="caption" color="gray">
+					$0
+				</Typography>
 			</Box>
 
 			{/* Connect Wallet Button */}

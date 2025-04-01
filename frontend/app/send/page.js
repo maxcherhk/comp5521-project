@@ -6,13 +6,15 @@ import SendBox from "@/components/SendBox";
 
 export default function SendPage() {
 	return (
-		<Container>
+		<>
 			<Header />
-			<Box mt={6}>
-				<TradeBox>
-					<SendBox />
-				</TradeBox>
-			</Box>
-		</Container>
+			<Container>
+				<Box mt={6}>
+					<TradeBox>
+						<SendBox />
+					</TradeBox>
+				</Box>
+			</Container>
+		</>
 	);
 }

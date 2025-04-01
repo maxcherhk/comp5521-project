@@ -26,6 +26,7 @@ import FlagIcon from "@mui/icons-material/Flag"; // Placeholder icon
 import TokenIcon from "@mui/icons-material/Token"; // Placeholder icon
 
 const countriesWithFlags = [
+	{ name: "Hong Kong", flag: "https://flagcdn.com/h40/hk.png" },
 	{ name: "Taiwan", flag: "https://flagcdn.com/h40/tw.png" },
 	{ name: "Japan", flag: "https://flagcdn.com/h40/jp.png" },
 	{ name: "United States", flag: "https://flagcdn.com/h40/us.png" },
@@ -35,13 +36,21 @@ const countriesWithFlags = [
 const tokens = ["Alpha", "Beta"];
 
 export default function BuyBox() {
-	const [country, setCountry] = useState("Taiwan");
+	const [country, setCountry] = useState(countriesWithFlags[0]);
 	const [token, setToken] = useState("");
 	const [amount, setAmount] = useState(0);
 	const [regionOpen, setRegionOpen] = useState(false);
 	const [tokenOpen, setTokenOpen] = useState(false);
 
 	const handleAmountSelect = (val) => setAmount(val);
+
+	const handleBuy = async () => {
+		const res = await fetch("/api/create-checkout-session", {
+			method: "POST",
+		});
+		const data = await res.json();
+		window.location.href = data.url;
+	};
 
 	return (
 		<>
@@ -63,11 +72,11 @@ export default function BuyBox() {
 					endIcon={<ExpandMoreIcon />}
 				>
 					<img
-						src={`https://flagcdn.com/h40/tw.png`} // use dynamic flag URL based on country if needed
+						src={country.flag} // use dynamic flag URL based on country if needed
 						alt="flag"
 						width={20}
 						height={20}
-						style={{ borderRadius: "50%", marginRight: 6 }}
+						style={{ borderRadius: "50%", marginRight: 6, objectFit: "cover" }}
 					/>
 				</Button>
 			</Box>
@@ -77,6 +86,11 @@ export default function BuyBox() {
 				type="number"
 				value={amount}
 				onChange={(e) => setAmount(e.target.value)}
+				startAdornment={
+					<InputAdornment position="start">
+						<Typography sx={{ color: "white", fontSize: "1.5rem" }}>$</Typography>
+					</InputAdornment>
+				}
 				sx={{
 					fontSize: "4rem",
 					color: "white",
@@ -102,7 +116,7 @@ export default function BuyBox() {
 			<Button
 				onClick={() => setTokenOpen(true)}
 				sx={{
-					backgroundColor: "#e754ec",
+					backgroundColor: "#00C2A8",
 					color: "white",
 					borderRadius: 999,
 					textTransform: "none",
@@ -141,6 +155,7 @@ export default function BuyBox() {
 			<Button
 				fullWidth
 				disabled={!token}
+				onClick={handleBuy}
 				sx={{
 					mt: 3,
 					backgroundColor: token ? "#6b2673" : "#2a2a2a",
@@ -170,18 +185,15 @@ export default function BuyBox() {
 						fullWidth
 						placeholder="Search country"
 						sx={{ mb: 2 }}
-						InputProps={{
-							startAdornment: <InputAdornment position="start">🌍</InputAdornment>,
-						}}
+						startAdornment={<InputAdornment position="start">🌍</InputAdornment>}
 					/>
 					<List>
 						{countriesWithFlags.map((cty) => (
-							<ListItem
-								button
+							<ListItemButton
 								key={cty.name}
-								selected={country === cty.name}
+								selected={country.name === cty.name}
 								onClick={() => {
-									setCountry(cty.name);
+									setCountry(cty);
 									setRegionOpen(false);
 								}}
 							>
@@ -191,11 +203,11 @@ export default function BuyBox() {
 										alt="flag"
 										width={20}
 										height={20}
-										style={{ borderRadius: "50%", marginRight: 6 }}
+										style={{ borderRadius: "50%", marginRight: 6, objectFit: "cover" }}
 									/>
 								</ListItemIcon>
 								<ListItemText primary={cty.name} />
-							</ListItem>
+							</ListItemButton>
 						))}
 					</List>
 				</DialogContent>
@@ -210,7 +222,12 @@ export default function BuyBox() {
 					</IconButton>
 				</DialogTitle>
 				<DialogContent>
-					<Input fullWidth placeholder="Search token" sx={{ mb: 2 }} />
+					<Input
+						fullWidth
+						placeholder="Search token"
+						sx={{ mb: 2 }}
+						startAdornment={<InputAdornment position="start">🔍</InputAdornment>}
+					/>
 					<List>
 						{tokens.map((tk) => (
 							<ListItemButton
