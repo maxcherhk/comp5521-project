@@ -5,7 +5,10 @@ import { useEffect } from "react";
 export default function BackgroundAnimation() {
 	useEffect(() => {
 		const canvas = document.getElementById("bgCanvas");
+		if (!canvas) return;
+
 		const ctx = canvas.getContext("2d");
+		if (!ctx) return;
 
 		let width = window.innerWidth;
 		let height = window.innerHeight;
@@ -79,6 +82,7 @@ export default function BackgroundAnimation() {
 				zIndex: -1,
 				background: "#0f2027",
 			}}
+			suppressHydrationWarning
 		/>
 	);
 }
