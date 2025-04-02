@@ -1,7 +1,15 @@
 import { ethers } from "ethers";
 import { getContracts, getTokenBalances, getPoolInfo } from "./contract"; // Adjust the import path as needed
 
-export const connectWallet = async (setProvider, setAccount, setContracts, setIsWalletConnected, setBalance0, setBalance1, setPoolInfo) => {
+export const connectWallet = async (
+	setProvider,
+	setAccount,
+	setContracts,
+	setIsWalletConnected,
+	setBalance0,
+	setBalance1,
+	setPoolInfo
+) => {
 	try {
 		if (!window.ethereum) {
 			throw new Error("MetaMask not installed");
@@ -14,7 +22,6 @@ export const connectWallet = async (setProvider, setAccount, setContracts, setIs
 
 		setProvider(provider);
 		setAccount(accounts[0]);
-		console.log(accounts[0]);
 		setContracts(initializedContracts);
 		setIsWalletConnected(true);
 
@@ -27,7 +34,7 @@ export const connectWallet = async (setProvider, setAccount, setContracts, setIs
 		const info = await getPoolInfo(initializedContracts);
 		setPoolInfo(info);
 		console.log(info);
-		console.log("Wallet connected successfully!");
+
 		alert(`Wallet connected!`);
 	} catch (error) {
 		console.error("Detailed connection error:", error);
@@ -35,7 +42,15 @@ export const connectWallet = async (setProvider, setAccount, setContracts, setIs
 	}
 };
 
-export const disconnectWallet = (setProvider, setAccount, setContracts, setIsWalletConnected, setBalance0, setBalance1, setPoolInfo) => {
+export const disconnectWallet = (
+	setProvider,
+	setAccount,
+	setContracts,
+	setIsWalletConnected,
+	setBalance0,
+	setBalance1,
+	setPoolInfo
+) => {
 	try {
 		// Reset all wallet-related states
 		setProvider(null);
@@ -46,7 +61,6 @@ export const disconnectWallet = (setProvider, setAccount, setContracts, setIsWal
 		setBalance1(0);
 		setPoolInfo(null);
 
-		console.log("Wallet disconnected successfully!");
 		alert("Wallet disconnected!");
 	} catch (error) {
 		console.error("Error during wallet disconnection:", error);

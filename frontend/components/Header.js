@@ -5,8 +5,12 @@ import { AppBar, Toolbar, Button, Menu, MenuItem, Box, Input, InputAdornment } f
 import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
 import SearchIcon from "@mui/icons-material/Search";
 import { useWallet } from "../context/WalletContext"; // Import WalletContext
+import { useRouter } from "next/navigation"; // Import useRouter for App Router navigation
 
 export default function Header() {
+	// Initialize the router
+	const router = useRouter();
+
 	const [anchorEl, setAnchorEl] = useState(null);
 	const [menuType, setMenuType] = useState(null);
 	const [walletMenuAnchor, setWalletMenuAnchor] = useState(null); // Anchor for wallet menu
@@ -66,7 +70,7 @@ export default function Header() {
 						key={item.label}
 						onClick={() => {
 							handleClose();
-							window.location.href = item.route; // Navigate to the route
+							router.push(item.route); // Navigate using App Router
 						}}
 					>
 						{item.label}
