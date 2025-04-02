@@ -1,22 +1,16 @@
 "use client";
-import { Box, Container, Typography } from "@mui/material";
-import Header from "@/components/Header";
-import LimitBox from "@/components/LimitBox";
-import TradeBox from "@/components/TradeBox";
-import BackgroundAnimation from "@/components/BackgroundAnimation";
+import { Box, Container } from "@mui/material";
+import LimitBox from "@/components/trade/LimitBox";
+import TradeBox from "@/components/trade/TradeBox";
 
 export default function LimitPage() {
 	return (
-		<>
-			<BackgroundAnimation />
-			<Header />
-			<Container maxWidth="sm">
-				<Box mt={6}>
-					<TradeBox>
-						<LimitBox />
-					</TradeBox>
-				</Box>
-			</Container>
-		</>
+		<Container maxWidth="sm">
+			<Box mt={6}>
+				<TradeBox>
+					<LimitBox />
+				</TradeBox>
+			</Box>
+		</Container>
 	);
 }

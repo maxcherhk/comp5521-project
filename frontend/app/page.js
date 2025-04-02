@@ -2,24 +2,18 @@
 import Image from "next/image";
 import styles from "./page.module.css";
 import { Container, Box } from "@mui/material";
-import Header from "@/components/Header";
-import TradeBox from "@/components/TradeBox";
-import SwapBox from "@/components/SwapBox";
-import BackgroundAnimation from "@/components/BackgroundAnimation";
+import TradeBox from "@/components/trade/TradeBox";
+import SwapBox from "@/components/trade/SwapBox";
 
 export default function Home() {
 	return (
-		<>
-			<BackgroundAnimation />
-			<Header />
-			<Container maxWidth="sm">
-				<Box mt={6}>
-					<TradeBox>
-						<SwapBox />
-					</TradeBox>
-				</Box>
-			</Container>
-		</>
+		<Container maxWidth="sm">
+			<Box mt={6}>
+				<TradeBox>
+					<SwapBox />
+				</TradeBox>
+			</Box>
+		</Container>
 	);
 	// <div className={styles.page}>
 	//   <main className={styles.main}>
