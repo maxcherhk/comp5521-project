@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { Box, Typography, TextField, Button, Menu, MenuItem, Input } from "@mui/material";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
-import { useWallet } from "../context/WalletContext";
+import { useWallet } from "../../context/WalletContext";
 
 const tokens = ["ALPHA", "BETA", "GAMMA", "DELTA"];
 
@@ -69,21 +69,31 @@ export default function SwapBox() {
 						sx={{
 							input: { fontSize: 28, color: "white" },
 							width: "70%",
+							"& input": {
+								MozAppearance: "textfield",
+								"&::-webkit-outer-spin-button": {
+									display: "none",
+								},
+								"&::-webkit-inner-spin-button": {
+									display: "none",
+								},
+							},
 						}}
 					/>
 					<Button
-						variant="outlined"
+						variant={sellToken ? "outlined" : "contained"}
 						onClick={handleSellMenuOpen}
 						sx={{
+							backgroundColor: sellToken ? "transparent" : "#00C2A8",
 							color: "white",
-							borderColor: "#333",
+							borderColor: sellToken ? "#333" : "transparent",
 							textTransform: "none",
 							borderRadius: 3,
 							minWidth: 90,
 							padding: "6px 12px", // Adjust padding for better alignment
 						}}
 					>
-						{sellToken}
+						{sellToken || "Select token"}
 						<KeyboardArrowDownIcon />
 					</Button>
 				</Box>
@@ -93,7 +103,7 @@ export default function SwapBox() {
 			</Box>
 
 			{/* Arrow */}
-			<Box display="flex" justifyContent="center">
+			<Box display="flex" margin={1} justifyContent="center">
 				<Button
 					sx={{
 						background: "#1e1e1e",
@@ -105,6 +115,11 @@ export default function SwapBox() {
 						justifyContent: "center",
 						minWidth: 0, // Prevents Material-UI's default button width
 						padding: 0, // Removes extra padding
+					}}
+					onClick={() => {
+						// Swap the tokens
+						setSellToken(buyToken || ""); // If no Buy token is selected, clear Sell token
+						setBuyToken(sellToken); // Set Buy token to the current Sell token
 					}}
 				>
 					<KeyboardArrowDownIcon />
@@ -131,6 +146,15 @@ export default function SwapBox() {
 						sx={{
 							input: { fontSize: 28, color: "white" },
 							width: "70%",
+							"& input": {
+								MozAppearance: "textfield",
+								"&::-webkit-outer-spin-button": {
+									display: "none",
+								},
+								"&::-webkit-inner-spin-button": {
+									display: "none",
+								},
+							},
 						}}
 					/>
 					<Button

@@ -49,10 +49,7 @@ export default function Header() {
 				{ label: "Pools", route: "#" },
 				{ label: "Transactions", route: "#" },
 			],
-			Pool: [
-				{ label: "View Positions", route: "#" },
-				{ label: "Create Position", route: "#" },
-			],
+			Pool: [{ label: "View Pools", route: "/explore/pools" }],
 		};
 
 		return (

@@ -30,6 +30,8 @@
 import { ThemeProvider, CssBaseline } from "@mui/material";
 import theme from "@/theme";
 import { WalletProvider } from "@/context/WalletContext";
+import BackgroundAnimation from "@/components/BackgroundAnimation";
+import Header from "@/components/Header";
 export default function RootLayout({ children }) {
 	return (
 		<html lang="en">
@@ -37,6 +39,8 @@ export default function RootLayout({ children }) {
 				<WalletProvider>
 					<ThemeProvider theme={theme}>
 						<CssBaseline />
+						<BackgroundAnimation />
+						<Header />
 						{children}
 					</ThemeProvider>
 				</WalletProvider>

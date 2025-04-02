@@ -1,15 +1,7 @@
 import { ethers } from "ethers";
 import { getContracts, getTokenBalances, getPoolInfo } from "./contract"; // Adjust the import path as needed
 
-export const connectWallet = async (
-	setProvider,
-	setAccount,
-	setContracts,
-	setIsWalletConnected,
-	setBalance0,
-	setBalance1,
-	setPoolInfo
-) => {
+export const connectWallet = async (setProvider, setAccount, setContracts, setIsWalletConnected, setBalance0, setBalance1, setPoolInfo) => {
 	try {
 		if (!window.ethereum) {
 			throw new Error("MetaMask not installed");
@@ -42,15 +34,7 @@ export const connectWallet = async (
 	}
 };
 
-export const disconnectWallet = (
-	setProvider,
-	setAccount,
-	setContracts,
-	setIsWalletConnected,
-	setBalance0,
-	setBalance1,
-	setPoolInfo
-) => {
+export const disconnectWallet = (setProvider, setAccount, setContracts, setIsWalletConnected, setBalance0, setBalance1, setPoolInfo) => {
 	try {
 		// Reset all wallet-related states
 		setProvider(null);

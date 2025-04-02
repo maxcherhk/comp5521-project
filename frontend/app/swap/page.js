@@ -1,23 +1,17 @@
 "use client";
 
 import { Box, Container } from "@mui/material";
-import Header from "@/components/Header";
-import SwapBox from "@/components/SwapBox";
-import TradeBox from "@/components/TradeBox";
-import BackgroundAnimation from "@/components/BackgroundAnimation";
+import SwapBox from "@/components/trade/SwapBox";
+import TradeBox from "@/components/trade/TradeBox";
 
 export default function SwapPage() {
 	return (
-		<>
-			<BackgroundAnimation />
-			<Header />
-			<Container maxWidth="sm">
-				<Box mt={6}>
-					<TradeBox>
-						<SwapBox />
-					</TradeBox>
-				</Box>
-			</Container>
-		</>
+		<Container maxWidth="sm">
+			<Box mt={6}>
+				<TradeBox>
+					<SwapBox />
+				</TradeBox>
+			</Box>
+		</Container>
 	);
 }
