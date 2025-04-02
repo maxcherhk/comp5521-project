@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Box, Typography, TextField, Button, IconButton, Chip, Menu, MenuItem, ToggleButtonGroup, ToggleButton } from "@mui/material";
+import { Box, Typography, TextField, Button, IconButton, Chip, Menu, MenuItem } from "@mui/material";
 import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
 import SettingsIcon from "@mui/icons-material/Settings";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
@@ -9,17 +9,12 @@ import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 const tokens = ["ETH", "USDC", "DAI"];
 
 export default function LimitBox() {
-	const [mode, setMode] = useState("limit");
 	const [price, setPrice] = useState("1791.44");
 	const [sellToken, setSellToken] = useState("ETH");
 	const [buyToken, setBuyToken] = useState("USDC");
 	const [expiry, setExpiry] = useState("1 week");
 	const [anchorEl, setAnchorEl] = useState(null);
 	const [tokenType, setTokenType] = useState(null);
-
-	const handleModeChange = (event, newMode) => {
-		if (newMode !== null) setMode(newMode);
-	};
 
 	const openTokenMenu = (e, type) => {
 		setAnchorEl(e.currentTarget);

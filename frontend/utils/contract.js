@@ -10,9 +10,9 @@ export const getContracts = async (signer) => {
 
 		const signerAddress = await signer.getAddress();
 		console.log("Signer address:", signerAddress);
-
 		const token0 = new ethers.Contract(addresses.token0, abis.NewToken, signer);
 		const token1 = new ethers.Contract(addresses.token1, abis.NewToken, signer);
+		console.log(token1);
 		const pool = new ethers.Contract(addresses.pool, abis.Pool, signer);
 
 		const contracts = {
@@ -45,6 +45,7 @@ export const getContracts = async (signer) => {
 
 export const getTokenBalances = async (contracts, address) => {
 	try {
+		console.log("Getting token balances for address:", contracts);
 		const token0Balance = await contracts.token0.contract.balanceOf(address);
 		const token1Balance = await contracts.token1.contract.balanceOf(address);
 		return {
@@ -61,7 +62,8 @@ export const getPoolInfo = async (contracts) => {
 	try {
 		const token0Balance = await contracts.token0.contract.balanceOf(contracts.pool.address);
 		const token1Balance = await contracts.token1.contract.balanceOf(contracts.pool.address);
-
+		console.log("Token0 balance in pool:", token0Balance);
+		console.log("Token1 balance in pool:", token1Balance);
 		return {
 			token0Balance: ethers.formatEther(token0Balance),
 			token1Balance: ethers.formatEther(token1Balance),

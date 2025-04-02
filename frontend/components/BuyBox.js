@@ -5,15 +5,11 @@ import {
 	Box,
 	Typography,
 	Button,
-	Menu,
-	MenuItem,
-	TextField,
 	Dialog,
 	DialogTitle,
 	DialogContent,
 	IconButton,
 	List,
-	ListItem,
 	ListItemText,
 	ListItemIcon,
 	InputAdornment,
@@ -22,8 +18,7 @@ import {
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import CloseIcon from "@mui/icons-material/Close";
-import FlagIcon from "@mui/icons-material/Flag"; // Placeholder icon
-import TokenIcon from "@mui/icons-material/Token"; // Placeholder icon
+import TokenIcon from "@mui/icons-material/Token";
 
 const countriesWithFlags = [
 	{ name: "Hong Kong", flag: "https://flagcdn.com/h40/hk.png" },
@@ -38,7 +33,7 @@ const tokens = ["Alpha", "Beta"];
 export default function BuyBox() {
 	const [country, setCountry] = useState(countriesWithFlags[0]);
 	const [token, setToken] = useState("");
-	const [amount, setAmount] = useState(0);
+	const [amount, setAmount] = useState("");
 	const [regionOpen, setRegionOpen] = useState(false);
 	const [tokenOpen, setTokenOpen] = useState(false);
 
@@ -85,6 +80,7 @@ export default function BuyBox() {
 			<Input
 				type="number"
 				value={amount}
+				placeholder="0"
 				onChange={(e) => setAmount(e.target.value)}
 				startAdornment={
 					<InputAdornment position="start">

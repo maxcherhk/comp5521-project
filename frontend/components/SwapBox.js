@@ -2,32 +2,49 @@
 
 import React, { useState } from "react";
 import { Box, Typography, TextField, Button, Menu, MenuItem, Input } from "@mui/material";
-import { ethers } from "ethers";
-import { getAmountOut, getContracts, getPoolInfo, getTokenBalances, getRequiredAmount1, swapTokens, addLiquidity } from "../utils/contract"; // Import helper functions
-import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
+import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import { useWallet } from "../context/WalletContext";
 
-const tokens = ["ETH", "DAI", "USDC"];
+const tokens = ["ALPHA", "BETA", "GAMMA", "DELTA"];
 
 export default function SwapBox() {
-	const [anchorEl, setAnchorEl] = useState(null);
-	const [selectedToken, setSelectedToken] = useState("ETH");
+	const [sellAnchorEl, setSellAnchorEl] = useState(null); // Separate state for Sell dropdown
+	const [buyAnchorEl, setBuyAnchorEl] = useState(null); // Separate state for Buy dropdown
+	const [sellToken, setSellToken] = useState("ALPHA");
 	const [buyToken, setBuyToken] = useState("");
+	const [sellAmount, setSellAmount] = useState(""); // State to store the sell amount
 
 	const { isWalletConnected, account, balance0, balance1, connectWallet } = useWallet();
 
-	const handleMenuOpen = (event) => {
-		setAnchorEl(event.currentTarget);
+	const handleSellMenuOpen = (event) => {
+		setSellAnchorEl(event.currentTarget);
 	};
 
-	const handleSelectToken = (token) => {
-		setSelectedToken(token);
-		setAnchorEl(null);
+	const handleBuyMenuOpen = (event) => {
+		setBuyAnchorEl(event.currentTarget);
 	};
 
-	const handleBuyTokenSelect = (token) => {
+	const handleSelectSellToken = (token) => {
+		setSellToken(token);
+		setSellAnchorEl(null);
+	};
+
+	const handleSelectBuyToken = (token) => {
 		setBuyToken(token);
-		setAnchorEl(null);
+		setBuyAnchorEl(null);
+	};
+
+	// Function to handle the swap action
+	const handleSwap = () => {
+		if (!sellAmount || !sellToken || !buyToken) {
+			alert("Please enter a valid amount and select both tokens.");
+			return;
+		}
+
+		// Call your swap logic here
+		console.log(`Swapping ${sellAmount} ${sellToken} for ${buyToken}`);
+		// Example: Call an API or smart contract function
+		// swapTokens(sellAmount, selectedToken, buyToken);
 	};
 
 	return (
@@ -44,10 +61,11 @@ export default function SwapBox() {
 					Sell
 				</Typography>
 				<Box display="flex" alignItems="center" justifyContent="space-between" mt={1}>
-					<TextField
+					<Input
+						type="number"
 						variant="standard"
 						placeholder="0"
-						InputProps={{ disableUnderline: true }}
+						disableUnderline
 						sx={{
 							input: { fontSize: 28, color: "white" },
 							width: "70%",
@@ -55,16 +73,18 @@ export default function SwapBox() {
 					/>
 					<Button
 						variant="outlined"
-						onClick={handleMenuOpen}
+						onClick={handleSellMenuOpen}
 						sx={{
 							color: "white",
 							borderColor: "#333",
 							textTransform: "none",
 							borderRadius: 3,
 							minWidth: 90,
+							padding: "6px 12px", // Adjust padding for better alignment
 						}}
 					>
-						{selectedToken}
+						{sellToken}
+						<KeyboardArrowDownIcon />
 					</Button>
 				</Box>
 				<Typography variant="caption" color="gray">
@@ -87,7 +107,7 @@ export default function SwapBox() {
 						padding: 0, // Removes extra padding
 					}}
 				>
-					<ArrowDownwardIcon />
+					<KeyboardArrowDownIcon />
 				</Button>
 			</Box>
 
@@ -104,6 +124,7 @@ export default function SwapBox() {
 				</Typography>
 				<Box display="flex" alignItems="center" justifyContent="space-between" mt={1}>
 					<Input
+						type="number"
 						variant="standard"
 						placeholder="0"
 						disableUnderline
@@ -113,17 +134,20 @@ export default function SwapBox() {
 						}}
 					/>
 					<Button
-						variant="contained"
-						onClick={handleMenuOpen}
+						variant={buyToken ? "outlined" : "contained"}
+						onClick={handleBuyMenuOpen}
 						sx={{
-							backgroundColor: "#00C2A8",
+							backgroundColor: buyToken ? "transparent" : "#00C2A8",
 							color: "white",
+							borderColor: buyToken ? "#333" : "transparent",
 							textTransform: "none",
 							borderRadius: 3,
 							minWidth: 90,
+							padding: "6px 12px", // Adjust padding for better alignment
 						}}
 					>
 						{buyToken || "Select token"}
+						<KeyboardArrowDownIcon sx={{ marginLeft: 1 }} />
 					</Button>
 				</Box>
 				<Typography variant="caption" color="gray">
@@ -131,7 +155,7 @@ export default function SwapBox() {
 				</Typography>
 			</Box>
 
-			{/* Connect Wallet Button */}
+			{/* Connect Wallet or Swap Button */}
 			<Button
 				fullWidth
 				sx={{
@@ -144,25 +168,29 @@ export default function SwapBox() {
 					fontWeight: "bold",
 					"&:hover": { backgroundColor: "#1F8EF1" },
 				}}
-				onClick={connectWallet}
+				onClick={!isWalletConnected ? connectWallet : handleSwap} // Call connectWallet or handleSwap
 			>
 				{!isWalletConnected ? "Connect wallet" : "Swap"}
 			</Button>
 
-			{/* Token Select Dropdown */}
-			<Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={() => setAnchorEl(null)}>
+			{/* Sell Token Select Dropdown */}
+			<Menu anchorEl={sellAnchorEl} open={Boolean(sellAnchorEl)} onClose={() => setSellAnchorEl(null)}>
 				{tokens.map((token) => (
-					<MenuItem
-						key={token}
-						onClick={() => {
-							if (!buyToken) handleSelectToken(token);
-							else handleBuyTokenSelect(token);
-						}}
-					>
+					<MenuItem key={token} onClick={() => handleSelectSellToken(token)}>
 						{token}
 					</MenuItem>
 				))}
 			</Menu>
+
+			{/* Buy Token Select Dropdown */}
+			<Menu anchorEl={buyAnchorEl} open={Boolean(buyAnchorEl)} onClose={() => setBuyAnchorEl(null)}>
+				{tokens.map((token) => (
+					<MenuItem key={token} onClick={() => handleSelectBuyToken(token)}>
+						{token}
+					</MenuItem>
+				))}
+			</Menu>
+
 			{!isWalletConnected ? null : (
 				<Box
 					sx={{
