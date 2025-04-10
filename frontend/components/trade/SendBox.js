@@ -4,11 +4,11 @@ import React, { useState } from "react";
 import { Box, Typography, TextField, Button, Menu, MenuItem, Input } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 
-const tokens = ["ETH", "USDC", "DAI"];
+const tokens = ["ALPHA", "BETA", "CHARLIE", "DELTA"];
 
 export default function SendBox() {
 	const [amount, setAmount] = useState("");
-	const [selectedToken, setSelectedToken] = useState("ETH");
+	const [selectedToken, setSelectedToken] = useState("ALPHA");
 	const [anchorEl, setAnchorEl] = useState(null);
 	const [recipient, setRecipient] = useState("");
 
