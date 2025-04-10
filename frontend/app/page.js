@@ -15,7 +15,7 @@ export default function Home() {
 			</Box>
 		</Container>
 	);
-	// <div className={styles.page}>`
+	// <div className={styles.page}>
 	//   <main className={styles.main}>
 	//     <Image
 	//       className={styles.logo}
