@@ -19,6 +19,7 @@ import {
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import CloseIcon from "@mui/icons-material/Close";
 import TokenIcon from "@mui/icons-material/Token";
+import { useWallet } from "@/context/WalletContext";
 
 const countriesWithFlags = [
 	{ name: "Hong Kong", flag: "https://flagcdn.com/h40/hk.png" },
@@ -28,9 +29,10 @@ const countriesWithFlags = [
 	{ name: "Germany", flag: "https://flagcdn.com/h40/de.png" },
 ];
 
-const tokens = ["Alpha", "Beta"];
+const tokens = ["Alpha", "Beta", "Charlie", "Delta"];
 
 export default function BuyBox() {
+	const { isWalletConnected, account, balance0, balance1, connectWallet } = useWallet();
 	const [country, setCountry] = useState(countriesWithFlags[0]);
 	const [token, setToken] = useState("");
 	const [amount, setAmount] = useState("");
@@ -148,25 +150,44 @@ export default function BuyBox() {
 			</Box>
 
 			{/* Main Action Button */}
-			<Button
-				fullWidth
-				disabled={!token}
-				onClick={handleBuy}
-				sx={{
-					mt: 3,
-					backgroundColor: token ? "#6b2673" : "#2a2a2a",
-					color: "white",
-					borderRadius: 3,
-					textTransform: "none",
-					fontWeight: "bold",
-					p: 1.5,
-					"&:hover": {
-						backgroundColor: token ? "#5c2162" : "#2a2a2a",
-					},
-				}}
-			>
-				{token ? `Buy ${token}` : "Select a token"}
-			</Button>
+			{!isWalletConnected ? (
+				<Button
+					fullWidth
+					sx={{
+						mt: 2,
+						backgroundColor: "#00C2A8",
+						color: "white",
+						textTransform: "none",
+						borderRadius: 3,
+						p: 1.5,
+						fontWeight: "bold",
+						"&:hover": { backgroundColor: "#1F8EF1" },
+					}}
+					onClick={connectWallet} // Call connectWallet or handleSwap
+				>
+					Connect Wallet
+				</Button>
+			) : (
+				<Button
+					fullWidth
+					disabled={!token}
+					onClick={handleBuy}
+					sx={{
+						mt: 3,
+						backgroundColor: token ? "#6b2673" : "#2a2a2a",
+						color: "white",
+						borderRadius: 3,
+						textTransform: "none",
+						fontWeight: "bold",
+						p: 1.5,
+						"&:hover": {
+							backgroundColor: token ? "#5c2162" : "#2a2a2a",
+						},
+					}}
+				>
+					{token ? `Buy ${token}` : "Select a token"}
+				</Button>
+			)}
 
 			{/* Region Dialog */}
 			<Dialog open={regionOpen} onClose={() => setRegionOpen(false)} fullWidth>
