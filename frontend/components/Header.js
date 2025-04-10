@@ -40,10 +40,10 @@ export default function Header() {
 	const renderMenu = (type) => {
 		const menuItems = {
 			Trade: [
-				{ label: "Swap", route: "/swap" },
-				{ label: "Limit", route: "/limit" },
-				{ label: "Send", route: "/send" },
-				{ label: "Buy", route: "/buy" },
+				{ label: "Swap", route: "/trade/swap" },
+				{ label: "Limit", route: "/trade/limit" },
+				{ label: "Send", route: "/trade/send" },
+				{ label: "Buy", route: "/trade/buy" },
 			],
 			Explore: [
 				{ label: "Tokens", route: "#" },
@@ -84,11 +84,7 @@ export default function Header() {
 				{/* Left Section: Navigation */}
 				<Box display="flex" alignItems="center" gap={2}>
 					{/* Website Name */}
-					<Typography
-						variant="h6"
-						sx={{ fontWeight: "bold", cursor: "pointer" }}
-						onClick={() => (window.location.href = "/")}
-					>
+					<Typography variant="h6" sx={{ fontWeight: "bold", cursor: "pointer" }} onClick={() => router.push("/")}>
 						COMP5521 DeFi Second Hand Market
 					</Typography>
 
@@ -100,7 +96,7 @@ export default function Header() {
 								if (label === "Market") {
 									router.push("/market"); // Navigate to the market page
 								} else if (label === "Sell") {
-									router.push("/sell"); // Navigate to the sell page
+									router.push("/market/sell"); // Navigate to the sell page
 								}
 							}}
 							sx={{ fontWeight: "bold" }}
@@ -120,7 +116,7 @@ export default function Header() {
 				</Box>
 
 				{/* Center: Search */}
-				<Box>
+				{/* <Box>
 					<Input
 						placeholder="Search tokens"
 						startAdornment={
@@ -136,7 +132,7 @@ export default function Header() {
 						}}
 						disableUnderline
 					/>
-				</Box>
+				</Box> */}
 
 				{/* Right: Wallet Button */}
 				<Box>
@@ -159,7 +155,9 @@ export default function Header() {
 									horizontal: "right",
 								}}
 							>
-								<MenuItem onClick={() => alert("View Wallet Details")}>View Wallet Details</MenuItem>
+								<MenuItem onClick={() => router.push("/user/wallet")}>View Wallet Details</MenuItem>
+								<MenuItem onClick={() => alert("View Transactions")}>View Transactions</MenuItem>
+								<MenuItem onClick={() => router.push("/user/order")}>View Orders</MenuItem>
 								<MenuItem onClick={disconnectWallet}>Disconnect</MenuItem>
 							</Menu>
 						</>
