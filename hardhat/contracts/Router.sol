@@ -292,6 +292,100 @@ contract Router is ReentrancyGuard {
         return (expectedAmountOut, totalFee, amountsOut, feesPerHop);
     }
     
+    // Private implementation for preview best route functionality
+    function _previewSwapWithBestRoute(
+        address tokenIn,
+        uint256 amountIn,
+        address tokenOut,
+        uint256 maxHops
+    ) private view returns (
+        address[] memory bestPath, 
+        uint256 expectedOutput,
+        uint256 totalFee,
+        uint256[] memory amountsOut
+    ) {
+        require(tokenIn != address(0) && tokenOut != address(0), "ZERO_TOKEN_ADDRESS");
+        require(tokenIn != tokenOut, "IDENTICAL_TOKENS");
+        require(amountIn > 0, "ZERO_AMOUNT");
+        require(maxHops >= 1 && maxHops <= 4, "INVALID_MAX_HOPS"); // Limit to 4 hops max for gas efficiency
+        
+        // Get all pools from factory
+        address[] memory allPools = PoolFactory(factory).getAllPools();
+        
+        // Find the best route with the highest output
+        (bestPath, expectedOutput) = findBestRoute(tokenIn, amountIn, tokenOut, allPools, maxHops);
+        
+        // Ensure a valid path was found
+        require(bestPath.length >= 2, "NO_ROUTE_FOUND");
+        
+        // Calculate the detailed swap information directly
+        // This is the same logic as in previewSwapMultiHop
+        amountsOut = new uint256[](bestPath.length);
+        uint256[] memory feesPerHop = new uint256[](bestPath.length - 1);
+        
+        // Set initial amount
+        amountsOut[0] = amountIn;
+        totalFee = 0;
+        
+        // Simulate swaps across the path
+        uint256 currentAmount = amountIn;
+        
+        for (uint i = 0; i < bestPath.length - 1; i++) {
+            // Get pool and check existence
+            address currentTokenIn = bestPath[i];
+            address currentTokenOut = bestPath[i+1];
+            address currentPool = _ensurePoolExists(currentTokenIn, currentTokenOut);
+            Pool poolContract = Pool(currentPool);
+            
+            // Get expected output and fee for this hop
+            uint256 expectedOut;
+            uint256 feeAmount;
+            (expectedOut, feeAmount) = poolContract.getAmountOut(currentTokenIn, currentAmount, currentTokenOut);
+            
+            // Store results
+            feesPerHop[i] = feeAmount;
+            currentAmount = expectedOut;
+            amountsOut[i+1] = expectedOut;
+            
+            // Accumulate the fee
+            totalFee += feeAmount;
+        }
+        
+        // Update expected output with the final amount
+        expectedOutput = currentAmount;
+        
+        return (bestPath, expectedOutput, totalFee, amountsOut);
+    }
+    
+    // Public function to preview the result of swapWithBestRoute without executing the swap
+    function previewSwapWithBestRoute(
+        address tokenIn,
+        uint256 amountIn,
+        address tokenOut,
+        uint256 maxHops
+    ) external view returns (
+        address[] memory bestPath, 
+        uint256 expectedOutput,
+        uint256 totalFee,
+        uint256[] memory amountsOut
+    ) {
+        return _previewSwapWithBestRoute(tokenIn, amountIn, tokenOut, maxHops);
+    }
+    
+    // Default version to preview swapWithBestRoute with maxHops = 4
+    function previewSwapWithBestRouteDefault(
+        address tokenIn,
+        uint256 amountIn,
+        address tokenOut
+    ) external view returns (
+        address[] memory bestPath, 
+        uint256 expectedOutput,
+        uint256 totalFee,
+        uint256[] memory amountsOut
+    ) {
+        return _previewSwapWithBestRoute(tokenIn, amountIn, tokenOut, 4);
+    }
+    
     // Allow users to create new pools through the router
     function createPool(address tokenA, address tokenB) external returns (address pool) {
         require(tokenA != address(0) && tokenB != address(0), "ZERO_TOKEN_ADDRESS");
@@ -323,14 +417,14 @@ contract Router is ReentrancyGuard {
         return Pool(pool).getAmountOut(tokenIn, amountIn, tokenOut);
     }
     
-    // New function: Find the best route and swap with it to maximize output
-    function swapWithBestRoute(
+    // Private implementation function for swap best route logic
+    function _swapWithBestRoute(
         address tokenIn,
         uint256 amountIn,
         address tokenOut,
         uint256 amountOutMin,
         uint256 maxHops
-    ) external nonReentrant returns (uint256 amountOut, address[] memory bestPath) {
+    ) private returns (uint256 amountOut, address[] memory bestPath) {
         require(tokenIn != address(0) && tokenOut != address(0), "ZERO_TOKEN_ADDRESS");
         require(tokenIn != tokenOut, "IDENTICAL_TOKENS");
         require(amountIn > 0, "ZERO_AMOUNT");
@@ -358,6 +452,28 @@ contract Router is ReentrancyGuard {
         amountOut = _executeMultiHopSwap(bestPath, amountIn, amountOutMin);
         
         return (amountOut, bestPath);
+    }
+    
+    // Default version of swapWithBestRoute with maxHops set to 4
+    function swapWithBestRouteDefault(
+        address tokenIn,
+        uint256 amountIn,
+        address tokenOut,
+        uint256 amountOutMin
+    ) external nonReentrant returns (uint256 amountOut, address[] memory bestPath) {
+        return _swapWithBestRoute(tokenIn, amountIn, tokenOut, amountOutMin, 4);
+    }
+    
+    // New function: Find the best route and swap with it to maximize output
+    function swapWithBestRoute(
+        address tokenIn,
+        uint256 amountIn,
+        address tokenOut,
+        uint256 amountOutMin,
+        uint256 maxHops
+    ) external nonReentrant returns (uint256 amountOut, address[] memory bestPath) {
+        // Call the implementation function
+        return _swapWithBestRoute(tokenIn, amountIn, tokenOut, amountOutMin, maxHops);
     }
     
     // Helper to find the best route between tokenIn and tokenOut
