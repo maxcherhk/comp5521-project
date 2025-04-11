@@ -296,5 +296,346 @@ describe("Router Best Route Functions", function () {
         expect(bestPath[i]).to.equal(expectedPath[i]);
       }
     });
+
+    // Test maxHops parameter limits
+    it("should respect the maxHops parameter", async function () {
+      // Let's test A->C which requires 2 hops (A->B->C)
+      const tokenAAddr = await tokenA.getAddress();
+      const tokenCAddr = await tokenC.getAddress();
+      
+      const amountIn = ethers.parseEther("100");
+      const amountOutMin = 0;
+      
+      // When maxHops is 1, the swap should fail (no direct pool A-C)
+      await expect(
+        router.connect(user1).swapWithBestRoute(
+          tokenAAddr,
+          amountIn,
+          tokenCAddr,
+          amountOutMin,
+          1 // maxHops = 1, insufficient for A->B->C
+        )
+      ).to.be.revertedWith("NO_ROUTE_FOUND");
+      
+      // When maxHops is 2, the swap should succeed (A->B->C)
+      const tx = await router.connect(user1).swapWithBestRoute(
+        tokenAAddr,
+        amountIn,
+        tokenCAddr,
+        amountOutMin,
+        2 // maxHops = 2, sufficient for A->B->C
+      );
+      
+      // Verify the swap was successful by checking balances
+      const finalBalanceC = await tokenC.balanceOf(user1.address);
+      expect(finalBalanceC).to.be.greaterThan(0);
+    });
+    
+    // Edge cases for token amounts
+    it("should handle very small amounts correctly", async function () {
+      const tokenAAddr = await tokenA.getAddress();
+      const tokenDAddr = await tokenD.getAddress();
+      
+      // Test with a very small amount
+      const tinyAmount = 10n; // Just 10 wei
+      const amountOutMin = 0;
+      const maxHops = 3;
+      
+      const initialBalanceA = await tokenA.balanceOf(user1.address);
+      const initialBalanceD = await tokenD.balanceOf(user1.address);
+      
+      // This should still execute the swap properly
+      await router.connect(user1).swapWithBestRoute(
+        tokenAAddr,
+        tinyAmount,
+        tokenDAddr,
+        amountOutMin,
+        maxHops
+      );
+      
+      const finalBalanceA = await tokenA.balanceOf(user1.address);
+      const finalBalanceD = await tokenD.balanceOf(user1.address);
+      
+      expect(finalBalanceA).to.equal(initialBalanceA - tinyAmount);
+      expect(finalBalanceD).to.be.greaterThan(initialBalanceD);
+    });
+    
+    it("should handle moderately large amounts correctly", async function () {
+      // Reduced amounts to avoid insufficient balance errors
+      const tokenAAddr = await tokenA.getAddress();
+      const tokenDAddr = await tokenD.getAddress();
+      
+      // No need to add extra liquidity, just use what we have
+      
+      // Test with a reasonably large amount
+      const largeAmount = ethers.parseEther("1000"); 
+      const amountOutMin = 0;
+      const maxHops = 3;
+      
+      const initialBalanceA = await tokenA.balanceOf(user1.address);
+      const initialBalanceD = await tokenD.balanceOf(user1.address);
+      
+      // This should execute the swap properly
+      await router.connect(user1).swapWithBestRoute(
+        tokenAAddr,
+        largeAmount,
+        tokenDAddr,
+        amountOutMin,
+        maxHops
+      );
+      
+      const finalBalanceA = await tokenA.balanceOf(user1.address);
+      const finalBalanceD = await tokenD.balanceOf(user1.address);
+      
+      expect(finalBalanceA).to.equal(initialBalanceA - largeAmount);
+      expect(finalBalanceD).to.be.greaterThan(initialBalanceD);
+    });
+    
+    // Complex multi-hop scenarios
+    it("should find multi-hop routes within maxHops", async function () {
+      // Test A->C which requires 2 hops (A->B->C)
+      const tokenAAddr = await tokenA.getAddress();
+      const tokenCAddr = await tokenC.getAddress();
+      
+      const amountIn = ethers.parseEther("100");
+      const amountOutMin = 0;
+      const maxHops = 3;
+      
+      // Execute the swap
+      const tx = await router.connect(user1).swapWithBestRoute(
+        tokenAAddr,
+        amountIn,
+        tokenCAddr,
+        amountOutMin,
+        maxHops
+      );
+      
+      // Verify successful swap by checking balances
+      const finalBalanceC = await tokenC.balanceOf(user1.address);
+      expect(finalBalanceC).to.be.greaterThan(0);
+      
+      // If we want to verify the path length, we'd need to check relevant events
+      // But for now, we've confirmed it can find a multi-hop route
+    });
+    
+    // Special token behaviors
+    it("should fail when trying to swap a token for itself", async function () {
+      const tokenAAddr = await tokenA.getAddress();
+      
+      const amountIn = ethers.parseEther("100");
+      const amountOutMin = 0;
+      const maxHops = 3;
+      
+      // Swapping token A for token A should fail with IDENTICAL_TOKENS
+      await expect(
+        router.connect(user1).swapWithBestRoute(
+          tokenAAddr,
+          amountIn,
+          tokenAAddr,
+          amountOutMin,
+          maxHops
+        )
+      ).to.be.revertedWith("IDENTICAL_TOKENS");
+    });
+    
+    // Slippage scenarios
+    it("should respect realistic slippage parameters", async function () {
+      const tokenAAddr = await tokenA.getAddress();
+      const tokenDAddr = await tokenD.getAddress();
+      
+      const amountIn = ethers.parseEther("100");
+      const maxHops = 3;
+      
+      // First, execute a swap to get the actual output amount
+      const initialBalanceD = await tokenD.balanceOf(user1.address);
+      
+      await router.connect(user1).swapWithBestRoute(
+        tokenAAddr,
+        amountIn,
+        tokenDAddr,
+        0, // no minimum
+        maxHops
+      );
+      
+      const finalBalanceD = await tokenD.balanceOf(user1.address);
+      const actualOutput = finalBalanceD - initialBalanceD;
+      
+      // Reset the balances by reverting
+      await ethers.provider.send("evm_revert", [snapshotId]);
+      snapshotId = await ethers.provider.send("evm_snapshot", []);
+      
+      // Now try with 99% of the actual output as slippage
+      const slippageOutput = actualOutput * 99n / 100n;
+      
+      await router.connect(user1).swapWithBestRoute(
+        tokenAAddr,
+        amountIn,
+        tokenDAddr,
+        slippageOutput, // 1% slippage
+        maxHops
+      );
+      
+      // This should pass, now try with a higher minimum (101% of actual)
+      await expect(
+        router.connect(user1).swapWithBestRoute(
+          tokenAAddr,
+          amountIn,
+          tokenDAddr,
+          actualOutput * 101n / 100n, // require 1% more than actual
+          maxHops
+        )
+      ).to.be.revertedWith("INSUFFICIENT_OUTPUT_AMOUNT");
+    });
+    
+    // Gas consumption
+    it("should optimize gas consumption for route finding", async function () {
+      const tokenAAddr = await tokenA.getAddress();
+      const tokenDAddr = await tokenD.getAddress();
+      
+      const amountIn = ethers.parseEther("100");
+      const amountOutMin = 0;
+      
+      // Compare gas usage with different maxHops values
+      
+      // With maxHops = 1 (direct paths only)
+      const tx1 = await router.connect(user1).swapWithBestRoute(
+        tokenAAddr,
+        amountIn,
+        tokenDAddr,
+        amountOutMin,
+        1
+      );
+      const receipt1 = await tx1.wait();
+      const gasUsed1 = receipt1.gasUsed;
+      
+      // Reset the state
+      await ethers.provider.send("evm_revert", [snapshotId]);
+      snapshotId = await ethers.provider.send("evm_snapshot", []);
+      
+      // With maxHops = 3 (more route options)
+      const tx3 = await router.connect(user1).swapWithBestRoute(
+        tokenAAddr,
+        amountIn,
+        tokenDAddr,
+        amountOutMin,
+        3
+      );
+      const receipt3 = await tx3.wait();
+      const gasUsed3 = receipt3.gasUsed;
+      
+      // The gas usage with more hops should be reasonable
+      // We're not asserting an exact value, as that's implementation dependent,
+      // but we can check that exploring more routes doesn't lead to excessive gas consumption
+      console.log(`Gas used with maxHops=1: ${gasUsed1}`);
+      console.log(`Gas used with maxHops=3: ${gasUsed3}`);
+      
+      // A reasonable expectation might be that exploring 3 hops uses no more than 3x the gas
+      // of exploring just 1 hop (direct routes)
+      expect(gasUsed3).to.be.lessThanOrEqual(gasUsed1 * 3n);
+    });
+    
+    // Verify functionality without relying on specific events
+    it("should successfully complete swaps with expected balance changes", async function () {
+      const tokenAAddr = await tokenA.getAddress();
+      const tokenDAddr = await tokenD.getAddress();
+      
+      const amountIn = ethers.parseEther("100");
+      const amountOutMin = 0;
+      const maxHops = 3;
+      
+      // Initial balances
+      const initialBalanceA = await tokenA.balanceOf(user1.address);
+      const initialBalanceD = await tokenD.balanceOf(user1.address);
+      
+      // Execute the swap
+      await router.connect(user1).swapWithBestRoute(
+        tokenAAddr,
+        amountIn,
+        tokenDAddr,
+        amountOutMin,
+        maxHops
+      );
+      
+      // Check final balances
+      const finalBalanceA = await tokenA.balanceOf(user1.address);
+      const finalBalanceD = await tokenD.balanceOf(user1.address);
+      
+      // Verify appropriate balance changes
+      expect(finalBalanceA).to.equal(initialBalanceA - amountIn);
+      expect(finalBalanceD).to.be.greaterThan(initialBalanceD);
+    });
+    
+    // Error conditions
+    it("should fail when trying to swap with zero input amount", async function () {
+      const tokenAAddr = await tokenA.getAddress();
+      const tokenDAddr = await tokenD.getAddress();
+      
+      const amountIn = 0n; // Zero input
+      const amountOutMin = 0;
+      const maxHops = 3;
+      
+      // Should fail with ZERO_AMOUNT
+      await expect(
+        router.connect(user1).swapWithBestRoute(
+          tokenAAddr,
+          amountIn,
+          tokenDAddr,
+          amountOutMin,
+          maxHops
+        )
+      ).to.be.revertedWith("ZERO_AMOUNT");
+    });
+    
+    it("should fail when user has insufficient balance", async function () {
+      // Get a signer with no tokens
+      const noTokenUser = user2;
+      
+      const tokenAAddr = await tokenA.getAddress();
+      const tokenDAddr = await tokenD.getAddress();
+      
+      const amountIn = ethers.parseEther("100");
+      const amountOutMin = 0;
+      const maxHops = 3;
+      
+      // Approve tokens first (even though user doesn't have any)
+      await tokenA.connect(noTokenUser).approve(await router.getAddress(), amountIn);
+      
+      // Should fail when trying to swap without having tokens
+      // Since it's a custom error, we just check that it reverts
+      await expect(
+        router.connect(noTokenUser).swapWithBestRoute(
+          tokenAAddr,
+          amountIn,
+          tokenDAddr,
+          amountOutMin,
+          maxHops
+        )
+      ).to.be.reverted;
+    });
+    
+    it("should fail when trying to swap with invalid tokens", async function () {
+      // Create a non-ERC20 contract
+      const NonERC20Mock = await ethers.getContractFactory("PoolFactory"); // Using any contract that's not an ERC20
+      const nonERC20 = await NonERC20Mock.deploy();
+      await nonERC20.waitForDeployment();
+      
+      const tokenAAddr = await tokenA.getAddress();
+      const nonERC20Addr = await nonERC20.getAddress();
+      
+      const amountIn = ethers.parseEther("100");
+      const amountOutMin = 0;
+      const maxHops = 3;
+      
+      // Should fail when trying to swap to a non-ERC20 token
+      await expect(
+        router.connect(user1).swapWithBestRoute(
+          tokenAAddr,
+          amountIn,
+          nonERC20Addr,
+          amountOutMin,
+          maxHops
+        )
+      ).to.be.reverted; // The exact error message depends on implementation
+    });
   });
 }); 
