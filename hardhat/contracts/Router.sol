@@ -890,7 +890,8 @@ contract Router is ReentrancyGuard {
         
         return results;
     }
-
+    
+    // Preview fees to be claimed
     function getPendingFeesFromPools(
         address[][] calldata tokenPairs,
         address user
