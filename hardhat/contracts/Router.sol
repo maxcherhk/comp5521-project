@@ -18,6 +18,7 @@ contract Router is ReentrancyGuard {
     event Swapped(address indexed tokenIn, address indexed tokenOut, address indexed user, uint256 amountIn, uint256 amountOut);
     event SwapFailed(address indexed pool, address indexed user, string reason);
     event FeesClaimFailed(address indexed pool, address indexed user);
+    event BestRouteFound(address[] path, uint256 expectedOutput);
     
     // Struct to reduce stack usage
     struct SwapHopData {
@@ -322,6 +323,215 @@ contract Router is ReentrancyGuard {
         return Pool(pool).getAmountOut(tokenIn, amountIn, tokenOut);
     }
     
+    // New function: Find the best route and swap with it to maximize output
+    function swapWithBestRoute(
+        address tokenIn,
+        uint256 amountIn,
+        address tokenOut,
+        uint256 amountOutMin,
+        uint256 maxHops
+    ) external nonReentrant returns (uint256 amountOut, address[] memory bestPath) {
+        require(tokenIn != address(0) && tokenOut != address(0), "ZERO_TOKEN_ADDRESS");
+        require(tokenIn != tokenOut, "IDENTICAL_TOKENS");
+        require(amountIn > 0, "ZERO_AMOUNT");
+        require(maxHops >= 1 && maxHops <= 4, "INVALID_MAX_HOPS"); // Limit to 4 hops max for gas efficiency
+        
+        // Get all pools from factory
+        address[] memory allPools = PoolFactory(factory).getAllPools();
+        
+        // Find the best route with the highest output
+        address[] memory path;
+        uint256 expectedOutput;
+        (path, expectedOutput) = findBestRoute(tokenIn, amountIn, tokenOut, allPools, maxHops);
+        
+        // Ensure a valid path was found
+        require(path.length >= 2, "NO_ROUTE_FOUND");
+        require(expectedOutput >= amountOutMin, "INSUFFICIENT_OUTPUT_AMOUNT");
+        
+        // Set return path
+        bestPath = path;
+        
+        // Emit which route was selected
+        emit BestRouteFound(bestPath, expectedOutput);
+        
+        // Execute the swap using the best path - direct call
+        amountOut = _executeMultiHopSwap(bestPath, amountIn, amountOutMin);
+        
+        return (amountOut, bestPath);
+    }
+    
+    // Helper to find the best route between tokenIn and tokenOut
+    function findBestRoute(
+        address tokenIn, 
+        uint256 amountIn, 
+        address tokenOut, 
+        address[] memory pools,
+        uint256 maxHops
+    ) public view returns (address[] memory bestPath, uint256 bestAmountOut) {
+        // Initialize the best path and amount
+        bestPath = new address[](0);
+        bestAmountOut = 0;
+        
+        // 1. Check direct route (1 hop)
+        address directPool = _getPool(tokenIn, tokenOut);
+        if (directPool != address(0)) {
+            address[] memory directPath = new address[](2);
+            directPath[0] = tokenIn;
+            directPath[1] = tokenOut;
+            
+            // Use try-catch with external call to handle potential failures
+            uint256 expectedOut = 0;
+            bool success = false;
+            
+            try Router(address(this)).previewSwapMultiHop(directPath, amountIn) returns (uint256 outAmount, uint256, uint256[] memory, uint256[] memory) {
+                expectedOut = outAmount;
+                success = true;
+            } catch {
+                // If preview fails, just continue (might be insufficient liquidity)
+            }
+            
+            if (success) {
+                bestPath = directPath;
+                bestAmountOut = expectedOut;
+            }
+        }
+        
+        // Early return if maxHops is 1
+        if (maxHops == 1) {
+            return (bestPath, bestAmountOut);
+        }
+        
+        // Find all intermediate tokens that connect tokenIn and tokenOut
+        address[] memory intermediateTokens = findIntermediateTokens(tokenIn, tokenOut, pools);
+        
+        // Try all 2-hop routes
+        for (uint i = 0; i < intermediateTokens.length; i++) {
+            address intermediate = intermediateTokens[i];
+            
+            // Skip if intermediate is the same as input or output token
+            if (intermediate == tokenIn || intermediate == tokenOut) continue;
+            
+            // Create path
+            address[] memory path = new address[](3);
+            path[0] = tokenIn;
+            path[1] = intermediate;
+            path[2] = tokenOut;
+            
+            try Router(address(this)).previewSwapMultiHop(path, amountIn) returns (uint256 expectedOut, uint256, uint256[] memory, uint256[] memory) {
+                if (expectedOut > bestAmountOut) {
+                    bestPath = path;
+                    bestAmountOut = expectedOut;
+                }
+            } catch {
+                // Skip if calculation fails
+                continue;
+            }
+        }
+        
+        // Only continue to 3-hop routes if maxHops >= 3 and we don't have a good route yet
+        if (maxHops >= 3 && bestAmountOut > 0) {
+            // 3. Check 3-hop routes (only if maxHops >= 3)
+            // This is a simplified approach for 3-hop routes
+            // For each intermediateToken, check if there's another hop that improves the output
+            for (uint i = 0; i < intermediateTokens.length; i++) {
+                address intermediate1 = intermediateTokens[i];
+                
+                // Skip if intermediate is the same as input or output token
+                if (intermediate1 == tokenIn || intermediate1 == tokenOut) continue;
+                
+                for (uint j = 0; j < intermediateTokens.length; j++) {
+                    if (i == j) continue; // Skip same intermediate
+                    
+                    address intermediate2 = intermediateTokens[j];
+                    
+                    // Skip if intermediate is the same as other tokens
+                    if (intermediate2 == tokenIn || intermediate2 == tokenOut || intermediate2 == intermediate1) continue;
+                    
+                    // Check if pools exist for this path
+                    if (_getPool(tokenIn, intermediate1) == address(0) ||
+                        _getPool(intermediate1, intermediate2) == address(0) ||
+                        _getPool(intermediate2, tokenOut) == address(0)) {
+                        continue;
+                    }
+                    
+                    // Create path
+                    address[] memory path = new address[](4);
+                    path[0] = tokenIn;
+                    path[1] = intermediate1;
+                    path[2] = intermediate2;
+                    path[3] = tokenOut;
+                    
+                    try Router(address(this)).previewSwapMultiHop(path, amountIn) returns (uint256 expectedOut, uint256, uint256[] memory, uint256[] memory) {
+                        if (expectedOut > bestAmountOut) {
+                            bestPath = path;
+                            bestAmountOut = expectedOut;
+                        }
+                    } catch {
+                        // Skip if calculation fails
+                        continue;
+                    }
+                }
+            }
+        }
+        
+        return (bestPath, bestAmountOut);
+    }
+    
+    // Helper function to find intermediate tokens that can connect tokenIn and tokenOut
+    function findIntermediateTokens(
+        address tokenIn, 
+        address tokenOut, 
+        address[] memory pools
+    ) private view returns (address[] memory) {
+        // Maximum number of intermediate tokens to find
+        address[] memory intermediates = new address[](pools.length * 2); // Upper bound on possible intermediates
+        uint256 count = 0;
+        
+        // Examine each pool
+        for (uint i = 0; i < pools.length; i++) {
+            Pool poolContract = Pool(pools[i]);
+            address token0 = poolContract.token0();
+            address token1 = poolContract.token1();
+            
+            // Skip pools with insufficient liquidity
+            uint256 balance0 = poolContract.tokenBalances(token0);
+            uint256 balance1 = poolContract.tokenBalances(token1);
+            if (balance0 == 0 || balance1 == 0) continue;
+            
+            // Check if this pool connects to tokenIn
+            if (token0 == tokenIn || token1 == tokenIn) {
+                // Add the other token as a potential intermediate
+                address intermediate = (token0 == tokenIn) ? token1 : token0;
+                
+                // Check if this intermediate connects to tokenOut
+                if (_getPool(intermediate, tokenOut) != address(0)) {
+                    // This is a valid intermediate token
+                    // Make sure we don't add duplicates
+                    bool duplicate = false;
+                    for (uint j = 0; j < count; j++) {
+                        if (intermediates[j] == intermediate) {
+                            duplicate = true;
+                            break;
+                        }
+                    }
+                    
+                    if (!duplicate) {
+                        intermediates[count] = intermediate;
+                        count++;
+                    }
+                }
+            }
+        }
+        
+        // Create the final array with the correct size
+        address[] memory result = new address[](count);
+        for (uint i = 0; i < count; i++) {
+            result[i] = intermediates[i];
+        }
+        
+        return result;
+    }
+    
     struct ClaimResult {
         address pool;
         address token0;
@@ -420,5 +630,47 @@ contract Router is ReentrancyGuard {
         }
         
         return results;
+    }
+    
+    // Helper function to execute a multi-hop swap directly
+    function _executeMultiHopSwap(
+        address[] memory path,
+        uint256 amountIn,
+        uint256 amountOutMin
+    ) private returns (uint256 amountOut) {
+        require(path.length >= 2, "INVALID_PATH");
+        
+        // Transfer initial tokens from user
+        IERC20(path[0]).safeTransferFrom(msg.sender, address(this), amountIn);
+        
+        // Perform swaps across the path
+        uint256 currentAmount = amountIn;
+        
+        for (uint i = 0; i < path.length - 1; i++) {
+            address currentPool = _ensurePoolExists(path[i], path[i+1]);
+            Pool poolContract = Pool(currentPool);
+            
+            // Approve current token for the pool
+            IERC20(path[i]).approve(currentPool, 0); // Reset allowance
+            IERC20(path[i]).approve(currentPool, currentAmount);
+            
+            // Perform swap
+            try poolContract.swap(path[i], currentAmount, path[i+1]) {
+                // Update amount for next hop
+                currentAmount = IERC20(path[i+1]).balanceOf(address(this));
+            } catch (bytes memory reason) {
+                emit SwapFailed(currentPool, msg.sender, string(reason));
+                revert("SWAP_FAILED");
+            }
+        }
+        
+        amountOut = currentAmount;
+        require(amountOut >= amountOutMin, "INSUFFICIENT_OUTPUT_AMOUNT");
+        
+        // Transfer final tokens to user
+        IERC20(path[path.length - 1]).safeTransfer(msg.sender, amountOut);
+        
+        emit Swapped(path[0], path[path.length - 1], msg.sender, amountIn, amountOut);
+        return amountOut;
     }
 } 
