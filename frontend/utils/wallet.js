@@ -1,7 +1,7 @@
 import { ethers } from "ethers";
 import { getContracts, getTokenBalances, getPoolInfo } from "./contract"; // Adjust the import path as needed
 
-export const connectWallet = async (setProvider, setAccount, setContracts, setIsWalletConnected, setBalance0, setBalance1, setPoolInfo) => {
+export const connectWallet = async (setProvider, setAccount, setContracts, setIsWalletConnected, setBalances, setPoolInfo) => {
 	try {
 		if (!window.ethereum) {
 			throw new Error("MetaMask not installed");
@@ -19,11 +19,10 @@ export const connectWallet = async (setProvider, setAccount, setContracts, setIs
 
 		// Get balance
 		const balances = await getTokenBalances(initializedContracts, accounts[0]);
-		setBalance0(balances.token0);
-		setBalance1(balances.token1);
-
+		setBalances(balances);
+		
 		// Get pool info
-		const info = await getPoolInfo(initializedContracts);
+		const info = await getPoolInfo(initializedContracts, "ALPHA", "BETA");
 		setPoolInfo(info);
 		console.log(info);
 
@@ -34,15 +33,14 @@ export const connectWallet = async (setProvider, setAccount, setContracts, setIs
 	}
 };
 
-export const disconnectWallet = (setProvider, setAccount, setContracts, setIsWalletConnected, setBalance0, setBalance1, setPoolInfo) => {
+export const disconnectWallet = (setProvider, setAccount, setContracts, setIsWalletConnected, setBalances, setPoolInfo) => {
 	try {
 		// Reset all wallet-related states
 		setProvider(null);
 		setAccount(null);
 		setContracts(null);
 		setIsWalletConnected(false);
-		setBalance0(0);
-		setBalance1(0);
+		setBalances({ ALPHA: "0", BETA: "0", CHARLIE: "0", DELTA: "0" });
 		setPoolInfo(null);
 
 		alert("Wallet disconnected!");
