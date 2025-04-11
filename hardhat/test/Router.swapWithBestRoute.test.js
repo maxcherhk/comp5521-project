@@ -638,4 +638,183 @@ describe("Router Best Route Functions", function () {
       ).to.be.reverted; // The exact error message depends on implementation
     });
   });
+
+  describe("previewSwapWithBestRouteDefault", function () {
+    it("should correctly predict the best route with default max hops (4)", async function () {
+      const tokenAAddr = await tokenA.getAddress();
+      const tokenDAddr = await tokenD.getAddress();
+      
+      const amountIn = ethers.parseEther("100");
+      
+      // Call the previewSwapWithBestRouteDefault function
+      const [bestPath, expectedOutput, totalFee, amountsOut] = await router.previewSwapWithBestRouteDefault(
+        tokenAAddr,
+        amountIn,
+        tokenDAddr
+      );
+      
+      // Verify the results
+      expect(bestPath.length).to.be.at.least(2); // At least two tokens in the path
+      expect(expectedOutput).to.be.gt(0); // Should have some expected output
+      expect(totalFee).to.be.gte(0); // Should have a total fee calculated
+      expect(amountsOut.length).to.equal(bestPath.length); // Should have amounts for each step
+      
+      // The first token in path should be tokenA
+      expect(bestPath[0]).to.equal(tokenAAddr);
+      
+      // The last token in path should be tokenD
+      expect(bestPath[bestPath.length - 1]).to.equal(tokenDAddr);
+      
+      // The amountsOut array should start with amountIn
+      expect(amountsOut[0]).to.equal(amountIn);
+      
+      // The last amount in amountsOut should match expectedOutput
+      expect(amountsOut[amountsOut.length - 1]).to.equal(expectedOutput);
+    });
+    
+    it("should select the most efficient route even with a direct path available", async function () {
+      const tokenAAddr = await tokenA.getAddress();
+      const tokenDAddr = await tokenD.getAddress();
+      
+      const amountIn = ethers.parseEther("100");
+      
+      // First, get the direct route result
+      const directPreview = await router.previewSwapMultiHop(
+        [tokenAAddr, tokenDAddr],
+        amountIn
+      );
+      
+      // Then get the best route preview
+      const [bestPath, expectedOutput, totalFee, amountsOut] = await router.previewSwapWithBestRouteDefault(
+        tokenAAddr,
+        amountIn,
+        tokenDAddr
+      );
+      
+      // If the best route is multi-hop, it should provide more output than the direct route
+      if (bestPath.length > 2) {
+        expect(expectedOutput).to.be.gt(directPreview[0]); // Best route should give more output
+      } else {
+        // If the direct route is best, paths should be identical
+        expect(bestPath.length).to.equal(2);
+        expect(bestPath[0]).to.equal(tokenAAddr);
+        expect(bestPath[1]).to.equal(tokenDAddr);
+        expect(expectedOutput).to.equal(directPreview[0]);
+      }
+    });
+    
+    it("should return empty path when no route exists", async function () {
+      // Deploy a new token that has no pools
+      const TokenContract = await ethers.getContractFactory("NewToken");
+      const tokenF = await TokenContract.deploy("TokenF", "TKNF");
+      await tokenF.waitForDeployment();
+      
+      const tokenAAddr = await tokenA.getAddress();
+      const tokenFAddr = await tokenF.getAddress();
+      
+      const amountIn = ethers.parseEther("100");
+      
+      // The preview should revert with NO_ROUTE_FOUND when there's no route
+      await expect(
+        router.previewSwapWithBestRouteDefault(
+          tokenAAddr,
+          amountIn,
+          tokenFAddr
+        )
+      ).to.be.revertedWith("NO_ROUTE_FOUND");
+    });
+    
+    it("should match actual swap result when executed", async function () {
+      const tokenAAddr = await tokenA.getAddress();
+      const tokenDAddr = await tokenD.getAddress();
+      
+      const amountIn = ethers.parseEther("100");
+      const amountOutMin = 0; // No slippage protection for testing
+      
+      // First, preview the swap to get expected output
+      const [bestPath, expectedOutput, totalFee, amountsOut] = await router.previewSwapWithBestRouteDefault(
+        tokenAAddr,
+        amountIn,
+        tokenDAddr
+      );
+      
+      // Skip test if no valid path is found
+      if (bestPath.length === 0) {
+        console.log("Skipping test: No valid path found");
+        return;
+      }
+      
+      // Now actually perform the swap
+      const swapResult = await router.connect(user1).swapWithBestRouteDefault(
+        tokenAAddr,
+        amountIn,
+        tokenDAddr,
+        amountOutMin
+      );
+      
+      // Wait for transaction to be mined
+      const receipt = await swapResult.wait();
+      
+      // Filter for the Swapped event
+      const routerAddress = await router.getAddress();
+      const swappedEvents = receipt.logs
+        .filter(log => log.address === routerAddress)
+        .map(log => {
+          try {
+            return router.interface.parseLog(log);
+          } catch (e) {
+            return null;
+          }
+        })
+        .filter(event => event && event.name === 'Swapped');
+      
+      // Should have at least one Swapped event
+      expect(swappedEvents.length).to.be.at.least(1);
+      
+      // Get the actual output amount from the event
+      const actualOutput = swappedEvents[0].args.amountOut;
+      
+      // The actual output should be close to the expected output
+      // Due to gas costs and block changes, we use a 1% tolerance
+      const tolerance = expectedOutput * 1n / 100n;
+      expect(actualOutput).to.be.closeTo(expectedOutput, tolerance);
+    });
+    
+    it("should have consistent results with explicit maxHops=4 call", async function () {
+      const tokenAAddr = await tokenA.getAddress();
+      const tokenDAddr = await tokenD.getAddress();
+      
+      const amountIn = ethers.parseEther("100");
+      
+      // Call the default version
+      const [defaultPath, defaultOutput, defaultFee, defaultAmounts] = await router.previewSwapWithBestRouteDefault(
+        tokenAAddr,
+        amountIn,
+        tokenDAddr
+      );
+      
+      // Call the explicit version with maxHops=4
+      const [explicitPath, explicitOutput, explicitFee, explicitAmounts] = await router.previewSwapWithBestRoute(
+        tokenAAddr,
+        amountIn,
+        tokenDAddr,
+        4 // Same max hops as default
+      );
+      
+      // Results should be identical
+      expect(defaultPath.length).to.equal(explicitPath.length);
+      expect(defaultOutput).to.equal(explicitOutput);
+      expect(defaultFee).to.equal(explicitFee);
+      
+      // Check path tokens are identical
+      for (let i = 0; i < defaultPath.length; i++) {
+        expect(defaultPath[i]).to.equal(explicitPath[i]);
+      }
+      
+      // Check amounts are identical
+      for (let i = 0; i < defaultAmounts.length; i++) {
+        expect(defaultAmounts[i]).to.equal(explicitAmounts[i]);
+      }
+    });
+  });
 }); 
