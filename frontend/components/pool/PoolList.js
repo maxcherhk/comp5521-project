@@ -1,19 +1,10 @@
 "use client";
 
-import React from "react";
-import {
-	Box,
-	Button,
-	Table,
-	TableBody,
-	TableCell,
-	TableContainer,
-	TableHead,
-	TableRow,
-	Typography,
-	Paper,
-} from "@mui/material";
+import React, { useState } from "react";
+import { Box, Button, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography, Paper } from "@mui/material";
 import { useRouter } from "next/navigation";
+import { useWallet } from "@/context/WalletContext"; // Adjust the import based on your context file location
+import AddLiquidityModal from "@/components/pool/AddLiquidityModal";
 
 const poolData = [
 	{ id: 1, name: "ALPHA/BETA", fee: "0.05%", version: "v3", tvl: "$148.1M", apr: "25.211%", volume: "$204.6M" },
@@ -24,6 +15,12 @@ const poolData = [
 
 const PoolTable = () => {
 	const router = useRouter();
+	const [isModalOpen, setIsModalOpen] = useState(false);
+
+	const handleAddLiquidity = (poolId, amount) => {
+		alert(`Adding ${amount} liquidity to pool with ID: ${poolId}`);
+		// Add your logic here to update the pool data or make an API call
+	};
 
 	return (
 		<Box sx={{ p: 4, backgroundColor: "#121212" }}>
@@ -31,7 +28,7 @@ const PoolTable = () => {
 				<Typography variant="h6" color="white">
 					Top Pools
 				</Typography>
-				<Button variant="contained" color="primary">
+				<Button variant="contained" color="primary" onClick={() => setIsModalOpen(true)}>
 					+ Add Liquidity
 				</Button>
 			</Box>
@@ -107,6 +104,7 @@ const PoolTable = () => {
 					</TableBody>
 				</Table>
 			</TableContainer>
+			<AddLiquidityModal open={isModalOpen} onClose={() => setIsModalOpen(false)} onAddLiquidity={handleAddLiquidity} />
 		</Box>
 	);
 };

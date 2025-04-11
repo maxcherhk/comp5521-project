@@ -45,12 +45,11 @@ export default function Header() {
 				{ label: "Send", route: "/trade/send" },
 				{ label: "Buy", route: "/trade/buy" },
 			],
-			Explore: [
-				{ label: "Tokens", route: "#" },
-				{ label: "Pools", route: "#" },
-				{ label: "Transactions", route: "#" },
+			Pool: [
+				{ label: "View Pools", route: "/explore/pools" },
+				{ label: "Add Liquidity", route: "/pool/add" },
+				{ label: "Withdraw Liquidity", route: "/pool/withdraw" },
 			],
-			Pool: [{ label: "View Pools", route: "/explore/pools" }],
 		};
 
 		return (
@@ -105,7 +104,7 @@ export default function Header() {
 						</Button>
 					))}
 
-					{["Trade", "Explore", "Pool"].map((label) => (
+					{["Trade", "Pool"].map((label) => (
 						<Box key={label}>
 							<Button onClick={(e) => handleMenuClick(e, label)} endIcon={<ArrowDropDownIcon />}>
 								{label}
@@ -114,25 +113,6 @@ export default function Header() {
 						</Box>
 					))}
 				</Box>
-
-				{/* Center: Search */}
-				{/* <Box>
-					<Input
-						placeholder="Search tokens"
-						startAdornment={
-							<InputAdornment position="start">
-								<SearchIcon sx={{ color: "gray" }} />
-							</InputAdornment>
-						}
-						sx={{
-							width: 300,
-							border: "1px solid #ccc",
-							borderRadius: 1,
-							padding: "4px 8px",
-						}}
-						disableUnderline
-					/>
-				</Box> */}
 
 				{/* Right: Wallet Button */}
 				<Box>
@@ -157,6 +137,7 @@ export default function Header() {
 							>
 								<MenuItem onClick={() => router.push("/user/wallet")}>View Wallet Details</MenuItem>
 								<MenuItem onClick={() => alert("View Transactions")}>View Transactions</MenuItem>
+								<MenuItem onClick={() => alert("View Selling")}>View Selling</MenuItem>
 								<MenuItem onClick={() => router.push("/user/order")}>View Orders</MenuItem>
 								<MenuItem onClick={disconnectWallet}>Disconnect</MenuItem>
 							</Menu>

@@ -2,6 +2,7 @@
 
 import React from "react";
 import { Box, Typography, Card, CardContent, Chip, Grid, Divider } from "@mui/material";
+import { useRouter } from "next/navigation";
 
 // Dummy order data
 const orders = [
@@ -38,6 +39,12 @@ const orders = [
 ];
 
 export default function OrderListPage() {
+	const router = useRouter();
+
+	const handleCardClick = (orderId) => {
+		router.push(`/user/order/${orderId}`); // Navigate to order detail page
+	};
+
 	return (
 		<Box sx={{ p: 4 }}>
 			<Typography variant="h4" gutterBottom>
@@ -48,7 +55,17 @@ export default function OrderListPage() {
 			<Grid container spacing={3}>
 				{orders.map((order) => (
 					<Grid item xs={12} md={6} lg={4} key={order.id}>
-						<Card sx={{ borderRadius: 3 }}>
+						<Card
+							sx={{
+								borderRadius: 3,
+								cursor: "pointer", // Add pointer cursor for better UX
+								transition: "transform 0.2s ease-in-out",
+								"&:hover": {
+									transform: "scale(1.02)", // Slight zoom effect on hover
+								},
+							}}
+							onClick={() => handleCardClick(order.id)} // Add click handler
+						>
 							<CardContent>
 								<Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
 									<img src={order.productImage} alt={order.productName} style={{ width: 80, height: 80, borderRadius: 8, marginRight: 16 }} />
