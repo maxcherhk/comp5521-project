@@ -20,6 +20,7 @@ import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import CloseIcon from "@mui/icons-material/Close";
 import TokenIcon from "@mui/icons-material/Token";
 import { useWallet } from "@/context/WalletContext";
+const { getAllTokens } = require("../../utils/token-address");
 
 const countriesWithFlags = [
 	{ name: "Hong Kong", flag: "https://flagcdn.com/h40/hk.png" },
@@ -29,9 +30,8 @@ const countriesWithFlags = [
 	{ name: "Germany", flag: "https://flagcdn.com/h40/de.png" },
 ];
 
-const tokens = ["Alpha", "Beta", "Charlie", "Delta"];
-
 export default function BuyBox() {
+	const tokens = getAllTokens();
 	const { isWalletConnected, account, balance0, balance1, connectWallet } = useWallet();
 	const [country, setCountry] = useState(countriesWithFlags[0]);
 	const [token, setToken] = useState("");
@@ -248,17 +248,17 @@ export default function BuyBox() {
 					<List>
 						{tokens.map((tk) => (
 							<ListItemButton
-								key={tk}
-								selected={token === tk}
+								key={tk.name}
+								selected={token === tk.name}
 								onClick={() => {
-									setToken(tk);
+									setToken(tk.name);
 									setTokenOpen(false);
 								}}
 							>
 								<ListItemIcon>
 									<TokenIcon sx={{ color: "white" }} />
 								</ListItemIcon>
-								<ListItemText primary={tk} />
+								<ListItemText primary={tk.name} />
 							</ListItemButton>
 						))}
 					</List>
