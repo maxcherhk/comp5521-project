@@ -44,16 +44,21 @@ contract Pool is LPToken, ReentrancyGuard {
         address token0,
         address token1,
         address factory,
-        address feeAdmin
+        address feeAdmin,
+        uint256 initialFeeRate
     );
 
-    constructor(address _token0, address _token1) LPToken(
+    constructor(address _token0, address _token1, uint256 _initialFeeRate) LPToken(
         string(abi.encodePacked("LP-", ERC20(_token0).symbol(), "-", ERC20(_token1).symbol())),
         string(abi.encodePacked("LP-", ERC20(_token0).symbol(), "-", ERC20(_token1).symbol()))
     ) {
         // Add validation for token addresses
         require(_token0 != address(0) && _token1 != address(0), "Zero address");
         require(_token0 != _token1, "Same token");
+        
+        // Validate fee rate
+        require(_initialFeeRate <= 10000, "Fee rate cannot exceed 100%");
+        feeRate = _initialFeeRate;
         
         // Store factory address that created this pool
         factory = msg.sender;
@@ -68,7 +73,7 @@ contract Pool is LPToken, ReentrancyGuard {
         feeAdmin = IPoolFactory(factory).feeAdmin();
         
         // Emit pool created event
-        emit PoolCreated(tokenA, tokenB, factory, feeAdmin);
+        emit PoolCreated(tokenA, tokenB, factory, feeAdmin, _initialFeeRate);
     }
 
     // Add accessor functions to replace the redundant immutable address variables

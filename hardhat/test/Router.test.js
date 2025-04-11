@@ -126,6 +126,40 @@ describe("Router Contract", function () {
       // Pool should now exist
       const newPool = await factory.findPool(token0Address, token2Address);
       expect(newPool).to.not.equal(ethers.ZeroAddress);
+      
+      // Pool should have the default fee rate (0)
+      const Pool = await hre.ethers.getContractFactory("Pool");
+      const pool = Pool.attach(newPool);
+      expect(await pool.getFeeRate()).to.equal(0);
+    });
+    
+    it("should create a new pool with custom fee rate through the router", async function () {
+      const token0Address = await token0.getAddress();
+      
+      // Create a different token pair to avoid "pool exists" error
+      const NewToken = await hre.ethers.getContractFactory("NewToken");
+      const token3 = await NewToken.deploy("Zeta", "ZETA");
+      await token3.waitForDeployment();
+      const token3Address = await token3.getAddress();
+      
+      // No pool should exist yet
+      const initialPool = await factory.findPool(token0Address, token3Address);
+      expect(initialPool).to.equal(ethers.ZeroAddress);
+      
+      // Custom fee rate of 25 basis points (0.25%)
+      const customFeeRate = 25;
+      
+      // Create pool with custom fee rate through router
+      await router.createPoolWithFee(token0Address, token3Address, customFeeRate);
+      
+      // Pool should now exist
+      const newPool = await factory.findPool(token0Address, token3Address);
+      expect(newPool).to.not.equal(ethers.ZeroAddress);
+      
+      // Pool should have the custom fee rate
+      const Pool = await hre.ethers.getContractFactory("Pool");
+      const pool = Pool.attach(newPool);
+      expect(await pool.getFeeRate()).to.equal(customFeeRate);
     });
     
     it("should revert when creating a pool that already exists", async function () {
@@ -135,6 +169,20 @@ describe("Router Contract", function () {
       // Try to create a pool that already exists
       await expect(router.createPool(token0Address, token1Address))
         .to.be.revertedWith("POOL_EXISTS");
+    });
+    
+    it("should revert when setting an invalid fee rate", async function () {
+      const token0Address = await token0.getAddress();
+      
+      // Create a different token pair to avoid "pool exists" error
+      const NewToken = await hre.ethers.getContractFactory("NewToken");
+      const token3 = await NewToken.deploy("Eta", "ETA");
+      await token3.waitForDeployment();
+      const token3Address = await token3.getAddress();
+      
+      // Try to create a pool with fee rate over 100%
+      await expect(router.createPoolWithFee(token0Address, token3Address, 10001))
+        .to.be.revertedWith("Fee rate cannot exceed 100%");
     });
   });
   
