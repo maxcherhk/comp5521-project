@@ -109,6 +109,61 @@ contract Router is ReentrancyGuard {
         IERC20(toToken).approve(pool, amountTo);
     }
     
+    // Preview function to show expected LP tokens and pool share before adding liquidity
+    function previewAddLiquidity(
+        address tokenA,
+        address tokenB,
+        uint256 amount,
+        bool isFromToken0
+    ) external view validateTokens(tokenA, tokenB) validateAmount(amount) returns (
+        uint256 lpAmount, 
+        uint256 poolShareBasisPoints,
+        uint256 amount0,
+        uint256 amount1
+    ) {
+        address pool = _ensurePoolExists(tokenA, tokenB);
+        Pool poolContract = Pool(pool);
+        
+        // Calculate required amounts based on which token is the base
+        if (isFromToken0) {
+            amount0 = amount;
+            amount1 = poolContract.getRequiredAmount1(amount);
+        } else {
+            amount1 = amount;
+            amount0 = poolContract.getRequiredAmount0(amount);
+        }
+        
+        // Calculate LP tokens using the same formula as in the Pool contract
+        uint256 totalLP = poolContract.totalSupply();
+        address token0 = poolContract.token0();
+        address token1 = poolContract.token1();
+        
+        if (totalLP > 0) {
+            if (isFromToken0) {
+                lpAmount = (amount0 * totalLP) / poolContract.tokenBalances(token0);
+            } else {
+                lpAmount = (amount1 * totalLP) / poolContract.tokenBalances(token1);
+            }
+        } else {
+            // Initial liquidity provision
+            if (isFromToken0) {
+                lpAmount = amount0;
+            } else {
+                uint256 INITIAL_RATIO = 2; // Same as in Pool contract
+                lpAmount = amount1 / INITIAL_RATIO;
+            }
+        }
+        
+        // Calculate pool share in basis points (1/100 of a percent)
+        if (totalLP > 0) {
+            poolShareBasisPoints = (lpAmount * 10000) / (totalLP + lpAmount);
+        } else {
+            poolShareBasisPoints = 10000; // 100% for first liquidity provider
+        }
+        
+        return (lpAmount, poolShareBasisPoints, amount0, amount1);
+    }
+    
     // Consolidated addLiquidity function that works with either token0 or token1 as the base
     function addLiquidity(
         address tokenA, 
