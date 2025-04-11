@@ -11,7 +11,8 @@ const getProductById = (id) => ({
 	id,
 	name: "Vintage Camera",
 	image: "https://picsum.photos/id/26/250",
-	price: "0.12 ETH",
+	price: "200",
+	token: "ALPHA",
 	condition: "Lightly Used",
 	description: "Classic 35mm film camera, great for collectors. Fully functional and comes with strap and case.",
 	sellerWallet: "0xAbC123...4567",
@@ -41,7 +42,9 @@ export default function ProductDetailPage() {
 	const product = getProductById(id);
 
 	const { balance0, balance1 } = useWallet();
-	console.log("Balance0:", balance0);
+	console.log("ALPHA:", balance0);
+
+	const isBalanceSufficient = parseFloat(balance0) >= parseFloat(product.price);
 
 	const [isSwapModalOpen, setSwapModalOpen] = useState(false);
 
@@ -59,7 +62,13 @@ export default function ProductDetailPage() {
 			<Grid container spacing={4} p={2} sx={{ backgroundColor: "#141a2a" }}>
 				<Grid item xs={12} md={6}>
 					<Card sx={{ borderRadius: 3 }}>
-						<CardMedia component="img" height="450" image={product.image} alt={product.name} sx={{ objectFit: "cover" }} />
+						<CardMedia
+							component="img"
+							height="450"
+							image={product.image}
+							alt={product.name}
+							sx={{ objectFit: "cover" }}
+						/>
 					</Card>
 				</Grid>
 
@@ -68,7 +77,12 @@ export default function ProductDetailPage() {
 						{product.name}
 					</Typography>
 
-					<Chip label={product.condition} color={getConditionColor(product.condition)} variant="outlined" sx={{ mb: 2 }} />
+					<Chip
+						label={product.condition}
+						color={getConditionColor(product.condition)}
+						variant="outlined"
+						sx={{ mb: 2 }}
+					/>
 
 					<Typography variant="h5" color="primary" sx={{ mt: 1, fontWeight: 600 }}>
 						💰 {product.price}
@@ -120,7 +134,8 @@ export default function ProductDetailPage() {
 				onClose={handleCloseSwapModal}
 				tokenType={product.tokenType}
 				exchangeRate={0.05} // Example exchange rate
-				productPrice={product.price.replace(" ETH", "")} // Example product price
+				productPrice={product.price} // Example product price
+				userBalance={balance0} // User's balance
 			/>
 		</Box>
 	);

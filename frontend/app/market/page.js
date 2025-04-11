@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
 	Box,
 	TextField,
@@ -21,28 +21,32 @@ const dummyProducts = [
 		id: 1,
 		name: "Vintage Camera",
 		image: "https://picsum.photos/id/26/250",
-		price: "0.12 ETH",
+		price: "200",
+		token: "ALPHA",
 		condition: "Lightly Used",
 	},
 	{
 		id: 2,
 		name: "Gaming Headset",
 		image: "https://picsum.photos/id/91/250",
-		price: "15 USDT",
+		price: "1000",
+		token: "BETA",
 		condition: "Brand New",
 	},
 	{
 		id: 3,
 		name: "Mechanical Keyboard",
 		image: "https://picsum.photos/id/119/250",
-		price: "0.08 ETH",
+		price: "150",
+		token: "CHARLIE",
 		condition: "Used",
 	},
 	{
 		id: 4,
 		name: "Used Smartphone",
 		image: "https://picsum.photos/250",
-		price: "0.2 ETH",
+		price: "600",
+		token: "DELTA",
 		condition: "Heavily Used",
 	},
 ];
@@ -113,7 +117,7 @@ export default function MarketplacePage() {
 										{product.name}
 									</Typography>
 									<Typography variant="subtitle1" color="text.secondary">
-										💰 {product.price}
+										💰 {product.price} {product.token}
 									</Typography>
 									<Chip
 										label={product.condition}

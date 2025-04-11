@@ -5,13 +5,12 @@ import { Box, Typography, TextField, Button, IconButton, Chip, Menu, MenuItem } 
 import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
 import SettingsIcon from "@mui/icons-material/Settings";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
-
-const tokens = ["ETH", "USDC", "DAI"];
-
+const { getAllTokens } = require("../../utils/token-address");
 export default function LimitBox() {
+	const tokens = getAllTokens();
 	const [price, setPrice] = useState("1791.44");
-	const [sellToken, setSellToken] = useState("ETH");
-	const [buyToken, setBuyToken] = useState("USDC");
+	const [sellToken, setSellToken] = useState("ALPHA");
+	const [buyToken, setBuyToken] = useState("BETA");
 	const [expiry, setExpiry] = useState("1 week");
 	const [anchorEl, setAnchorEl] = useState(null);
 	const [tokenType, setTokenType] = useState(null);
@@ -224,8 +223,8 @@ export default function LimitBox() {
 			{/* Token Menu */}
 			<Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={() => setAnchorEl(null)}>
 				{tokens.map((token) => (
-					<MenuItem key={token} onClick={() => selectToken(token)}>
-						{token}
+					<MenuItem key={token.name} onClick={() => selectToken(token.name)}>
+						{token.name}
 					</MenuItem>
 				))}
 			</Menu>
