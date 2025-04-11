@@ -29,6 +29,17 @@ async function main() {
   await tokenD.waitForDeployment();
   console.log("Token D deployed at:", await tokenD.getAddress());
 
+  const [deployer] = await hre.ethers.getSigners();
+  console.log("Using deployer:", deployer.address);
+
+  // Mint tokens to deployer
+  const amount = hre.ethers.parseEther("1000000"); // 1 million tokens
+  await tokenA.mint(deployer.address, amount);
+  await tokenB.mint(deployer.address, amount);
+  await tokenC.mint(deployer.address, amount);
+  await tokenD.mint(deployer.address, amount);
+  console.log("✅ Minted 1M ALPHA, BETA, CHARLIE, DELTA to deployer.");
+
   // Deploy the factory
   console.log("Deploying Pool Factory...");
   const PoolFactory = await hre.ethers.getContractFactory("PoolFactory");
