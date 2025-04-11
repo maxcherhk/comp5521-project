@@ -62,13 +62,7 @@ export default function ProductDetailPage() {
 			<Grid container spacing={4} p={2} sx={{ backgroundColor: "#141a2a" }}>
 				<Grid item xs={12} md={6}>
 					<Card sx={{ borderRadius: 3 }}>
-						<CardMedia
-							component="img"
-							height="450"
-							image={product.image}
-							alt={product.name}
-							sx={{ objectFit: "cover" }}
-						/>
+						<CardMedia component="img" height="450" image={product.image} alt={product.name} sx={{ objectFit: "cover" }} />
 					</Card>
 				</Grid>
 
@@ -77,15 +71,10 @@ export default function ProductDetailPage() {
 						{product.name}
 					</Typography>
 
-					<Chip
-						label={product.condition}
-						color={getConditionColor(product.condition)}
-						variant="outlined"
-						sx={{ mb: 2 }}
-					/>
+					<Chip label={product.condition} color={getConditionColor(product.condition)} variant="outlined" sx={{ mb: 2 }} />
 
 					<Typography variant="h5" color="primary" sx={{ mt: 1, fontWeight: 600 }}>
-						💰 {product.price}
+						💰 {product.price} {product.token}
 					</Typography>
 
 					<Typography variant="body1" sx={{ mt: 3 }}>

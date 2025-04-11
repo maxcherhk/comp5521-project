@@ -1,21 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import {
-	Box,
-	Typography,
-	Button,
-	Dialog,
-	DialogTitle,
-	DialogContent,
-	IconButton,
-	List,
-	ListItemText,
-	ListItemIcon,
-	InputAdornment,
-	Input,
-	ListItemButton,
-} from "@mui/material";
+import { Box, Typography, Button, Dialog, DialogTitle, DialogContent, IconButton, List, ListItemText, ListItemIcon, InputAdornment, Input, ListItemButton } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import CloseIcon from "@mui/icons-material/Close";
 import TokenIcon from "@mui/icons-material/Token";
@@ -30,6 +16,13 @@ const countriesWithFlags = [
 	{ name: "Germany", flag: "https://flagcdn.com/h40/de.png" },
 ];
 
+const exchangeRates = {
+	ALPHA: 0.5,
+	BETA: 0.3,
+	CHARLIE: 0.2,
+	DELTA: 0.1,
+};
+
 export default function BuyBox() {
 	const tokens = getAllTokens();
 	const { isWalletConnected, account, balance0, balance1, connectWallet } = useWallet();
@@ -41,9 +34,19 @@ export default function BuyBox() {
 
 	const handleAmountSelect = (val) => setAmount(val);
 
+	const calculateTokenAmount = () => {
+		if (!token || !amount) return 0;
+		const rate = exchangeRates[token] || 0; // Get the exchange rate for the selected token
+		return (amount * rate).toFixed(2); // Calculate and format the token amount
+	};
+
 	const handleBuy = async () => {
 		const res = await fetch("/api/create-checkout-session", {
 			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({ amount: amount * 100 }), // Convert to cents
 		});
 		const data = await res.json();
 		window.location.href = data.url;
@@ -112,9 +115,10 @@ export default function BuyBox() {
 
 			{/* Token Selector */}
 			<Button
+				variant="outlined"
 				onClick={() => setTokenOpen(true)}
 				sx={{
-					backgroundColor: "#00C2A8",
+					backgroundColor: token ? "rgba(255, 255, 255, 0.1)" : "#00C2A8",
 					color: "white",
 					borderRadius: 999,
 					textTransform: "none",
@@ -126,7 +130,7 @@ export default function BuyBox() {
 				}}
 				endIcon={<ExpandMoreIcon />}
 			>
-				{token ? `Buy ${token}` : "Select a token"}
+				{token ? `${calculateTokenAmount()} ${token}` : "Select a token"}
 			</Button>
 
 			{/* Quick Amount Buttons */}
@@ -134,7 +138,7 @@ export default function BuyBox() {
 				{[100, 300, 1000].map((val) => (
 					<Button
 						key={val}
-						variant="outlined"
+						variant={"outlined"}
 						onClick={() => handleAmountSelect(val)}
 						sx={{
 							color: "white",
@@ -198,12 +202,7 @@ export default function BuyBox() {
 					</IconButton>
 				</DialogTitle>
 				<DialogContent>
-					<Input
-						fullWidth
-						placeholder="Search country"
-						sx={{ mb: 2 }}
-						startAdornment={<InputAdornment position="start">🌍</InputAdornment>}
-					/>
+					<Input fullWidth placeholder="Search country" sx={{ mb: 2 }} startAdornment={<InputAdornment position="start">🌍</InputAdornment>} />
 					<List>
 						{countriesWithFlags.map((cty) => (
 							<ListItemButton
@@ -239,12 +238,7 @@ export default function BuyBox() {
 					</IconButton>
 				</DialogTitle>
 				<DialogContent>
-					<Input
-						fullWidth
-						placeholder="Search token"
-						sx={{ mb: 2 }}
-						startAdornment={<InputAdornment position="start">🔍</InputAdornment>}
-					/>
+					<Input fullWidth placeholder="Search token" sx={{ mb: 2 }} startAdornment={<InputAdornment position="start">🔍</InputAdornment>} />
 					<List>
 						{tokens.map((tk) => (
 							<ListItemButton
