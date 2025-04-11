@@ -3,12 +3,12 @@
 import React, { useState } from "react";
 import { Box, Typography, TextField, Button, Menu, MenuItem, Input } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-
-const tokens = ["ETH", "USDC", "DAI"];
+const { getAllTokens } = require("../../utils/token-address");
 
 export default function SendBox() {
+	const tokens = getAllTokens();
 	const [amount, setAmount] = useState("");
-	const [selectedToken, setSelectedToken] = useState("ETH");
+	const [selectedToken, setSelectedToken] = useState("ALPHA");
 	const [anchorEl, setAnchorEl] = useState(null);
 	const [recipient, setRecipient] = useState("");
 
@@ -133,8 +133,8 @@ export default function SendBox() {
 			{/* Token Dropdown */}
 			<Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={() => setAnchorEl(null)}>
 				{tokens.map((token) => (
-					<MenuItem key={token} onClick={() => handleTokenSelect(token)}>
-						{token}
+					<MenuItem key={token.name} onClick={() => handleTokenSelect(token.name)}>
+						{token.name}
 					</MenuItem>
 				))}
 			</Menu>

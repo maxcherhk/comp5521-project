@@ -17,11 +17,11 @@ export default function TradeBox({ children }) {
 
 	React.useEffect(() => {
 		// Update the mode based on the current route
-		if (pathname === "/limit") {
+		if (pathname === "/trade/limit") {
 			setMode("limit");
-		} else if (pathname === "/send") {
+		} else if (pathname === "/trade/send") {
 			setMode("send");
-		} else if (pathname === "/buy") {
+		} else if (pathname === "/trade/buy") {
 			setMode("buy");
 		} else {
 			setMode("swap");
@@ -33,16 +33,16 @@ export default function TradeBox({ children }) {
 			setMode(newMode);
 			if (newMode === "swap") {
 				setMode("swap"); // Set mode to "swap"
-				router.push("/swap"); // Route to / when "swap" mode is selected
+				router.push("/trade/swap"); // Route to / when "swap" mode is selected
 			} else if (newMode === "limit") {
 				setMode("limit"); // Set mode to "limit"
-				router.push("/limit"); // Route to /limit when "limit" mode is selected
+				router.push("/trade/limit"); // Route to /limit when "limit" mode is selected
 			} else if (newMode === "send") {
 				setMode("send"); // Set mode to "send"
-				router.push("/send"); // Route to /send when "send" mode is selected
+				router.push("/trade/send"); // Route to /send when "send" mode is selected
 			} else if (newMode === "buy") {
 				setMode("buy"); // Set mode to "buy"
-				router.push("/buy"); // Route to /buy when "buy" mode is selected
+				router.push("/trade/buy"); // Route to /buy when "buy" mode is selected
 			}
 		}
 	};

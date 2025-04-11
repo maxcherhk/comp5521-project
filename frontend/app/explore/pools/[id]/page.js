@@ -6,12 +6,13 @@ import SwapBox from "@/components/trade/SwapBox";
 import { IconButton } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { ArrowRightSharp } from "@mui/icons-material";
+const { getPoolByAddress } = require("../../../../utils/token-address"); // Adjust the import based on your file structure
 
 export default function PoolDetailPage() {
 	const params = useParams();
 
 	const pool = {
-		name: "USDC / ETH",
+		name: "ALPHA / BETA",
 		version: "v3",
 		fee: "0.05%",
 		tvl: "$148.3M",

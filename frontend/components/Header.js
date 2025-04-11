@@ -1,11 +1,12 @@
 "use client";
 
 import React, { useState } from "react";
-import { AppBar, Toolbar, Button, Menu, MenuItem, Box, Input, InputAdornment } from "@mui/material";
+import { AppBar, Toolbar, Button, Menu, MenuItem, Box, Input, InputAdornment, Typography } from "@mui/material";
 import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
 import SearchIcon from "@mui/icons-material/Search";
 import { useWallet } from "../context/WalletContext"; // Import WalletContext
 import { useRouter } from "next/navigation"; // Import useRouter for App Router navigation
+import { Sell } from "@mui/icons-material";
 
 export default function Header() {
 	// Initialize the router
@@ -39,17 +40,16 @@ export default function Header() {
 	const renderMenu = (type) => {
 		const menuItems = {
 			Trade: [
-				{ label: "Swap", route: "/swap" },
-				{ label: "Limit", route: "/limit" },
-				{ label: "Send", route: "/send" },
-				{ label: "Buy", route: "/buy" },
+				{ label: "Swap", route: "/trade/swap" },
+				{ label: "Limit", route: "/trade/limit" },
+				{ label: "Send", route: "/trade/send" },
+				{ label: "Buy", route: "/trade/buy" },
 			],
-			Explore: [
-				{ label: "Tokens", route: "#" },
-				{ label: "Pools", route: "#" },
-				{ label: "Transactions", route: "#" },
+			Pool: [
+				{ label: "View Pools", route: "/explore/pools" },
+				{ label: "Add Liquidity", route: "/pool/add" },
+				{ label: "Withdraw Liquidity", route: "/pool/withdraw" },
 			],
-			Pool: [{ label: "View Pools", route: "/explore/pools" }],
 		};
 
 		return (
@@ -82,11 +82,29 @@ export default function Header() {
 			<Toolbar sx={{ justifyContent: "space-between" }}>
 				{/* Left Section: Navigation */}
 				<Box display="flex" alignItems="center" gap={2}>
-					{/* Home Button */}
-					<Button onClick={() => (window.location.href = "/")} sx={{ fontWeight: "bold" }}>
-						Home
-					</Button>
-					{["Trade", "Explore", "Pool"].map((label) => (
+					{/* Website Name */}
+					<Typography variant="h6" sx={{ fontWeight: "bold", cursor: "pointer" }} onClick={() => router.push("/")}>
+						COMP5521 DeFi Second Hand Market
+					</Typography>
+
+					{/* Market and Sell Buttons */}
+					{["Market", "Sell"].map((label) => (
+						<Button
+							key={label}
+							onClick={() => {
+								if (label === "Market") {
+									router.push("/market"); // Navigate to the market page
+								} else if (label === "Sell") {
+									router.push("/market/sell"); // Navigate to the sell page
+								}
+							}}
+							sx={{ fontWeight: "bold" }}
+						>
+							{label}
+						</Button>
+					))}
+
+					{["Trade", "Pool"].map((label) => (
 						<Box key={label}>
 							<Button onClick={(e) => handleMenuClick(e, label)} endIcon={<ArrowDropDownIcon />}>
 								{label}
@@ -94,31 +112,6 @@ export default function Header() {
 							{renderMenu(label)}
 						</Box>
 					))}
-				</Box>
-
-				{/* Center: Search */}
-				<Box
-					sx={{
-						position: "absolute",
-						left: "50%",
-						transform: "translateX(-50%)",
-					}}
-				>
-					<Input
-						placeholder="Search tokens"
-						startAdornment={
-							<InputAdornment position="start">
-								<SearchIcon sx={{ color: "gray" }} />
-							</InputAdornment>
-						}
-						sx={{
-							width: 300,
-							border: "1px solid #ccc",
-							borderRadius: 1,
-							padding: "4px 8px",
-						}}
-						disableUnderline
-					/>
 				</Box>
 
 				{/* Right: Wallet Button */}
@@ -142,7 +135,10 @@ export default function Header() {
 									horizontal: "right",
 								}}
 							>
-								<MenuItem onClick={() => alert("View Wallet Details")}>View Wallet Details</MenuItem>
+								<MenuItem onClick={() => router.push("/user/wallet")}>View Wallet Details</MenuItem>
+								<MenuItem onClick={() => alert("View Transactions")}>View Transactions</MenuItem>
+								<MenuItem onClick={() => alert("View Selling")}>View Selling</MenuItem>
+								<MenuItem onClick={() => router.push("/user/order")}>View Orders</MenuItem>
 								<MenuItem onClick={disconnectWallet}>Disconnect</MenuItem>
 							</Menu>
 						</>
