@@ -299,6 +299,15 @@ contract Router is ReentrancyGuard {
         return PoolFactory(factory).createPool(tokenA, tokenB);
     }
     
+    // Allow users to create new pools with a specific fee rate through the router
+    function createPoolWithFee(address tokenA, address tokenB, uint256 feeRate) external returns (address pool) {
+        require(tokenA != address(0) && tokenB != address(0), "ZERO_TOKEN_ADDRESS");
+        require(tokenA != tokenB, "IDENTICAL_TOKENS");
+        require(feeRate <= 10000, "Fee rate cannot exceed 100%");
+        
+        return PoolFactory(factory).createPoolWithFee(tokenA, tokenB, feeRate);
+    }
+    
     // Get quote for swap
     function getAmountOut(
         address tokenIn,
