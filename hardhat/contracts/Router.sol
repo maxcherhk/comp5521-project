@@ -319,7 +319,6 @@ contract Router is ReentrancyGuard {
         require(bestPath.length >= 2, "NO_ROUTE_FOUND");
         
         // Calculate the detailed swap information directly
-        // This is the same logic as in previewSwapMultiHop
         amountsOut = new uint256[](bestPath.length);
         uint256[] memory feesPerHop = new uint256[](bestPath.length - 1);
         
