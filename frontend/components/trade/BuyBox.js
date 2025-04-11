@@ -1,24 +1,12 @@
 "use client";
 
 import React, { useState } from "react";
-import {
-	Box,
-	Typography,
-	Button,
-	Dialog,
-	DialogTitle,
-	DialogContent,
-	IconButton,
-	List,
-	ListItemText,
-	ListItemIcon,
-	InputAdornment,
-	Input,
-	ListItemButton,
-} from "@mui/material";
+import { Box, Typography, Button, Dialog, DialogTitle, DialogContent, IconButton, List, ListItemText, ListItemIcon, InputAdornment, Input, ListItemButton } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import CloseIcon from "@mui/icons-material/Close";
 import TokenIcon from "@mui/icons-material/Token";
+import { useWallet } from "@/context/WalletContext";
+const { getAllTokens } = require("../../utils/token-address");
 
 const countriesWithFlags = [
 	{ name: "Hong Kong", flag: "https://flagcdn.com/h40/hk.png" },
@@ -28,9 +16,16 @@ const countriesWithFlags = [
 	{ name: "Germany", flag: "https://flagcdn.com/h40/de.png" },
 ];
 
-const tokens = ["Alpha", "Beta"];
+const exchangeRates = {
+	ALPHA: 0.5,
+	BETA: 0.3,
+	CHARLIE: 0.2,
+	DELTA: 0.1,
+};
 
 export default function BuyBox() {
+	const tokens = getAllTokens();
+	const { isWalletConnected, account, balance0, balance1, connectWallet } = useWallet();
 	const [country, setCountry] = useState(countriesWithFlags[0]);
 	const [token, setToken] = useState("");
 	const [amount, setAmount] = useState("");
@@ -39,9 +34,19 @@ export default function BuyBox() {
 
 	const handleAmountSelect = (val) => setAmount(val);
 
+	const calculateTokenAmount = () => {
+		if (!token || !amount) return 0;
+		const rate = exchangeRates[token] || 0; // Get the exchange rate for the selected token
+		return (amount * rate).toFixed(2); // Calculate and format the token amount
+	};
+
 	const handleBuy = async () => {
 		const res = await fetch("/api/create-checkout-session", {
 			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({ amount: amount * 100 }), // Convert to cents
 		});
 		const data = await res.json();
 		window.location.href = data.url;
@@ -110,9 +115,10 @@ export default function BuyBox() {
 
 			{/* Token Selector */}
 			<Button
+				variant="outlined"
 				onClick={() => setTokenOpen(true)}
 				sx={{
-					backgroundColor: "#00C2A8",
+					backgroundColor: token ? "rgba(255, 255, 255, 0.1)" : "#00C2A8",
 					color: "white",
 					borderRadius: 999,
 					textTransform: "none",
@@ -124,7 +130,7 @@ export default function BuyBox() {
 				}}
 				endIcon={<ExpandMoreIcon />}
 			>
-				{token ? `Buy ${token}` : "Select a token"}
+				{token ? `${calculateTokenAmount()} ${token}` : "Select a token"}
 			</Button>
 
 			{/* Quick Amount Buttons */}
@@ -132,7 +138,7 @@ export default function BuyBox() {
 				{[100, 300, 1000].map((val) => (
 					<Button
 						key={val}
-						variant="outlined"
+						variant={"outlined"}
 						onClick={() => handleAmountSelect(val)}
 						sx={{
 							color: "white",
@@ -148,25 +154,44 @@ export default function BuyBox() {
 			</Box>
 
 			{/* Main Action Button */}
-			<Button
-				fullWidth
-				disabled={!token}
-				onClick={handleBuy}
-				sx={{
-					mt: 3,
-					backgroundColor: token ? "#6b2673" : "#2a2a2a",
-					color: "white",
-					borderRadius: 3,
-					textTransform: "none",
-					fontWeight: "bold",
-					p: 1.5,
-					"&:hover": {
-						backgroundColor: token ? "#5c2162" : "#2a2a2a",
-					},
-				}}
-			>
-				{token ? `Buy ${token}` : "Select a token"}
-			</Button>
+			{!isWalletConnected ? (
+				<Button
+					fullWidth
+					sx={{
+						mt: 2,
+						backgroundColor: "#00C2A8",
+						color: "white",
+						textTransform: "none",
+						borderRadius: 3,
+						p: 1.5,
+						fontWeight: "bold",
+						"&:hover": { backgroundColor: "#1F8EF1" },
+					}}
+					onClick={connectWallet} // Call connectWallet or handleSwap
+				>
+					Connect Wallet
+				</Button>
+			) : (
+				<Button
+					fullWidth
+					disabled={!token}
+					onClick={handleBuy}
+					sx={{
+						mt: 3,
+						backgroundColor: token ? "#6b2673" : "#2a2a2a",
+						color: "white",
+						borderRadius: 3,
+						textTransform: "none",
+						fontWeight: "bold",
+						p: 1.5,
+						"&:hover": {
+							backgroundColor: token ? "#5c2162" : "#2a2a2a",
+						},
+					}}
+				>
+					{token ? `Buy ${token}` : "Select a token"}
+				</Button>
+			)}
 
 			{/* Region Dialog */}
 			<Dialog open={regionOpen} onClose={() => setRegionOpen(false)} fullWidth>
@@ -177,12 +202,7 @@ export default function BuyBox() {
 					</IconButton>
 				</DialogTitle>
 				<DialogContent>
-					<Input
-						fullWidth
-						placeholder="Search country"
-						sx={{ mb: 2 }}
-						startAdornment={<InputAdornment position="start">🌍</InputAdornment>}
-					/>
+					<Input fullWidth placeholder="Search country" sx={{ mb: 2 }} startAdornment={<InputAdornment position="start">🌍</InputAdornment>} />
 					<List>
 						{countriesWithFlags.map((cty) => (
 							<ListItemButton
@@ -218,26 +238,21 @@ export default function BuyBox() {
 					</IconButton>
 				</DialogTitle>
 				<DialogContent>
-					<Input
-						fullWidth
-						placeholder="Search token"
-						sx={{ mb: 2 }}
-						startAdornment={<InputAdornment position="start">🔍</InputAdornment>}
-					/>
+					<Input fullWidth placeholder="Search token" sx={{ mb: 2 }} startAdornment={<InputAdornment position="start">🔍</InputAdornment>} />
 					<List>
 						{tokens.map((tk) => (
 							<ListItemButton
-								key={tk}
-								selected={token === tk}
+								key={tk.name}
+								selected={token === tk.name}
 								onClick={() => {
-									setToken(tk);
+									setToken(tk.name);
 									setTokenOpen(false);
 								}}
 							>
 								<ListItemIcon>
 									<TokenIcon sx={{ color: "white" }} />
 								</ListItemIcon>
-								<ListItemText primary={tk} />
+								<ListItemText primary={tk.name} />
 							</ListItemButton>
 						))}
 					</List>

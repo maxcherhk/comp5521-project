@@ -4,10 +4,10 @@ import React, { useState } from "react";
 import { Box, Typography, TextField, Button, Menu, MenuItem, Input } from "@mui/material";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import { useWallet } from "../../context/WalletContext";
-
-const tokens = ["ALPHA", "BETA", "GAMMA", "DELTA"];
+const { getAllTokens } = require("../../utils/token-address");
 
 export default function SwapBox() {
+	const tokens = getAllTokens();
 	const [sellAnchorEl, setSellAnchorEl] = useState(null); // Separate state for Sell dropdown
 	const [buyAnchorEl, setBuyAnchorEl] = useState(null); // Separate state for Buy dropdown
 	const [sellToken, setSellToken] = useState("ALPHA");
@@ -200,8 +200,8 @@ export default function SwapBox() {
 			{/* Sell Token Select Dropdown */}
 			<Menu anchorEl={sellAnchorEl} open={Boolean(sellAnchorEl)} onClose={() => setSellAnchorEl(null)}>
 				{tokens.map((token) => (
-					<MenuItem key={token} onClick={() => handleSelectSellToken(token)}>
-						{token}
+					<MenuItem key={token.name} onClick={() => handleSelectSellToken(token.name)}>
+						{token.name}
 					</MenuItem>
 				))}
 			</Menu>
@@ -209,8 +209,8 @@ export default function SwapBox() {
 			{/* Buy Token Select Dropdown */}
 			<Menu anchorEl={buyAnchorEl} open={Boolean(buyAnchorEl)} onClose={() => setBuyAnchorEl(null)}>
 				{tokens.map((token) => (
-					<MenuItem key={token} onClick={() => handleSelectBuyToken(token)}>
-						{token}
+					<MenuItem key={token.name} onClick={() => handleSelectBuyToken(token.name)}>
+						{token.name}
 					</MenuItem>
 				))}
 			</Menu>
