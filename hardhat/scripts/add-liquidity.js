@@ -48,9 +48,9 @@ async function main() {
 
   // ✅ Correctly reference addresses using object properties
   await addLiquidity(addresses.poolAB, addresses.tokenA, addresses.tokenB, "ALPHA", "BETA");
-  await addLiquidity(addresses.poolAC, addresses.tokenA, addresses.tokenC, "ALPHA", "CHARLIE");
   await addLiquidity(addresses.poolAD, addresses.tokenA, addresses.tokenD, "ALPHA", "DELTA");
-  await addLiquidity(addresses.poolBC, addresses.tokenC, addresses.tokenB, "CHARLIE", "BETA");
+  await addLiquidity(addresses.poolBC, addresses.tokenB, addresses.tokenC, "BETA", "CHARLIE");
+  await addLiquidity(addresses.poolCD, addresses.tokenD, addresses.tokenC, "DELTA", "CHARLIE");
 }
 
 main().catch((error) => {

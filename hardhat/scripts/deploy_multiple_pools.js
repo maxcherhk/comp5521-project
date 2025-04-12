@@ -153,13 +153,15 @@ async function main() {
   const artifacts = {
     NewToken: await hre.artifacts.readArtifact("NewToken"),
     LPToken: await hre.artifacts.readArtifact("LPToken"),
-    Pool: await hre.artifacts.readArtifact("Pool")
+    Pool: await hre.artifacts.readArtifact("Pool"),
+    Router: await hre.artifacts.readArtifact("Router")
   };
   
   const abis = {
     NewToken: artifacts.NewToken.abi,
     LPToken: artifacts.LPToken.abi,
-    Pool: artifacts.Pool.abi
+    Pool: artifacts.Pool.abi,
+    Router: artifacts.Router.abi
   };
   
   // Write data to the file (creates the file if it doesn't exist)
