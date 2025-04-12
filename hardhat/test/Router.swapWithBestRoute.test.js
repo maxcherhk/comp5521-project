@@ -29,6 +29,14 @@ describe("Router Best Route Functions", function () {
     tokenE = await TokenContract.deploy("TokenE", "TKNE");
     await tokenE.waitForDeployment();
     
+    // Mint tokens to the owner
+    const mintAmount = ethers.parseEther("1000000");
+    await tokenA.mint(owner.address, mintAmount);
+    await tokenB.mint(owner.address, mintAmount);
+    await tokenC.mint(owner.address, mintAmount);
+    await tokenD.mint(owner.address, mintAmount);
+    await tokenE.mint(owner.address, mintAmount);
+    
     // Transfer tokens to user1 for testing
     // NewToken mints 1,000,000 tokens to deployer in constructor
     const transferAmount = ethers.parseEther("500000");
