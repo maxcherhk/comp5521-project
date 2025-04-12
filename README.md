@@ -27,8 +27,7 @@ Copy and replace the wallet address to hardhat/scripts/transferDF.js and hardhat
 **Step 4**
 New terminal  
 > cd hardhat  
-> npx hardhat run .\scripts\deploy_multiple_pools.js  
-> npx hardhat run scripts/transferDF.js --network localhost  
+> npx hardhat run .\scripts\deploy_multiple_pools.js   
 Stop hardhat (Ctrl+C in terminal)  
 
 **Step 5**
@@ -36,7 +35,8 @@ New terminal
 > cd hardhat  
 > npx hardhat node  
 > npx hardhat run scripts/deploy_multiple_pools.js --network localhost  
-> npx hardhat run scripts/transferTokenForTesting.js --network localhost  
+> npx hardhat run scripts/transferTokenForTesting.js --network localhost   
+> npx hardhat run scripts/transferDF.js --network localhost  
 
 **Step 6**
 Open MetaMask  
