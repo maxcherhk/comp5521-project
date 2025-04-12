@@ -20,7 +20,7 @@ const modalStyle = {
 	p: 4,
 };
 
-const AddLiquidityModal = ({ open, onClose }) => {
+const AddLiquidityModal = ({ open, onClose, initialPoolSelection }) => {
 	const [pools, setPools] = useState([]);
 	const [selectedPool, setSelectedPool] = useState("");
 	const [token1Amount, setToken1Amount] = useState("");
@@ -42,9 +42,22 @@ const AddLiquidityModal = ({ open, onClose }) => {
 	});
 	const [isFirstTokenBase, setIsFirstTokenBase] = useState(true); // Track which token is the base for calculations
 
+	// Load pools and handle initial pool selection
 	useEffect(() => {
-		setPools(getAllPools());
-	}, []);
+		const allPools = getAllPools();
+		setPools(allPools);
+		
+		// If initialPoolSelection is provided and exists in the pools list, select it
+		if (initialPoolSelection && open) {
+			const pool = allPools.find(p => p.name === initialPoolSelection);
+			if (pool) {
+				setSelectedPool(initialPoolSelection);
+				fetchPoolReserves(initialPoolSelection);
+				// If a pool is pre-selected, automatically go to step 2
+				setStep(2);
+			}
+		}
+	}, [initialPoolSelection, open]);
 
 	// Effect to update the second token amount when the first token amount changes
 	useEffect(() => {
@@ -59,6 +72,27 @@ const AddLiquidityModal = ({ open, onClose }) => {
 			calculateFirstTokenAmount(token2Amount);
 		}
 	}, [token2Amount, selectedPool, isFirstTokenBase]);
+	
+	// Clear form when modal is closed
+	useEffect(() => {
+		if (!open) {
+			// Only reset if not using initialPoolSelection
+			if (!initialPoolSelection) {
+				setSelectedPool("");
+			}
+			setToken1Amount("");
+			setToken2Amount("");
+			setLpTokenEstimate({
+				amount: "0",
+				poolShare: "0",
+				isCalculating: false
+			});
+			// Reset step only if not using initialPoolSelection
+			if (!initialPoolSelection) {
+				setStep(1);
+			}
+		}
+	}, [open, initialPoolSelection]);
 
 	const fetchPoolReserves = async (poolName) => {
 		try {
@@ -716,6 +750,11 @@ const AddLiquidityModal = ({ open, onClose }) => {
 			</Snackbar>
 		</>
 	);
+};
+
+// Add default props
+AddLiquidityModal.defaultProps = {
+	initialPoolSelection: ""
 };
 
 export default AddLiquidityModal;
