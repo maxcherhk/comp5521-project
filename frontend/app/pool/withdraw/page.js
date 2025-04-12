@@ -31,6 +31,13 @@ const WithdrawLiquidity = () => {
 	const [tokenASymbol, setTokenASymbol] = useState("");
 	const [tokenBSymbol, setTokenBSymbol] = useState("");
 	const [expectedOutput, setExpectedOutput] = useState({ amountA: "0", amountB: "0" });
+	const [unclaimedFees, setUnclaimedFees] = useState({ 
+		token0: "0", 
+		token1: "0", 
+		token0Symbol: "", 
+		token1Symbol: "", 
+		isLoading: false 
+	});
 
 	// Fetch user's liquidity positions on component mount
 	useEffect(() => {
@@ -45,6 +52,150 @@ const WithdrawLiquidity = () => {
 			setExpectedOutput({ amountA: "0", amountB: "0" });
 		}
 	}, [withdrawAmount, selectedPool]);
+
+	// Fetch pending fees when pool selection changes
+	useEffect(() => {
+		if (selectedPool) {
+			fetchPendingFees();
+		} else {
+			setUnclaimedFees({ 
+				token0: "0", 
+				token1: "0", 
+				token0Symbol: "", 
+				token1Symbol: "", 
+				isLoading: false 
+			});
+		}
+	}, [selectedPool]);
+
+	// Fetch pending fees for the selected pool
+	const fetchPendingFees = async () => {
+		if (!selectedPool) return;
+		
+		try {
+			setUnclaimedFees(prev => ({ ...prev, isLoading: true }));
+			
+			// Find the selected pool
+			const poolInfo = availablePools.find((p) => p.pool === selectedPool);
+			if (!poolInfo) return;
+			
+			// Connect to provider
+			if (!window.ethereum) throw new Error("MetaMask is not installed");
+			const provider = new ethers.BrowserProvider(window.ethereum);
+			const signer = await provider.getSigner();
+			const userAddress = await signer.getAddress();
+			
+			// Get pool contract
+			const poolContract = new ethers.Contract(poolInfo.address, abis.Pool, signer);
+			
+			// IMPORTANT: Get token addresses in correct order from the pool contract
+			const token0Address = await poolContract.token0();
+			const token1Address = await poolContract.token1();
+			
+			// Get token symbols
+			let token0Symbol = "", token1Symbol = "";
+			for (const [symbol, address] of Object.entries(addresses.tokens)) {
+				if (address.toLowerCase() === token0Address.toLowerCase()) token0Symbol = symbol;
+				if (address.toLowerCase() === token1Address.toLowerCase()) token1Symbol = symbol;
+			}
+			
+			// Get pending fees - this returns [fee0, fee1] corresponding to token0 and token1
+			const [fee0, fee1] = await poolContract.getPendingFees(userAddress);
+			console.log("Pending fees:", {
+				userAddress,
+				token0: token0Symbol,
+				token1: token1Symbol,
+				fee0: ethers.formatEther(fee0),
+				fee1: ethers.formatEther(fee1)
+			});
+			
+			// Format fees to readable format
+			const formattedFee0 = ethers.formatEther(fee0);
+			const formattedFee1 = ethers.formatEther(fee1);
+			
+			setUnclaimedFees({
+				token0: formattedFee0,
+				token1: formattedFee1,
+				token0Symbol,
+				token1Symbol,
+				isLoading: false
+			});
+			
+		} catch (error) {
+			console.error("Error fetching pending fees:", error);
+			setUnclaimedFees(prev => ({ 
+				...prev, 
+				token0: "0", 
+				token1: "0", 
+				isLoading: false 
+			}));
+		}
+	};
+
+	// Handle claim fees button click
+	const handleClaimFees = async () => {
+		if (!selectedPool) return;
+		
+		try {
+			setLoading(true);
+			setTxStatus({
+				success: true,
+				message: "Claiming fees, please confirm transaction...",
+				open: true
+			});
+			
+			// Find the selected pool
+			const poolInfo = availablePools.find((p) => p.pool === selectedPool);
+			if (!poolInfo) throw new Error("Pool not found");
+			
+			// Connect to provider
+			if (!window.ethereum) throw new Error("MetaMask is not installed");
+			const provider = new ethers.BrowserProvider(window.ethereum);
+			const signer = await provider.getSigner();
+			
+			// Get pool contract
+			const poolContract = new ethers.Contract(poolInfo.address, abis.Pool, signer);
+			
+			// Call claimFees function
+			const claimTx = await poolContract.claimFees();
+			console.log("Claim fees transaction submitted:", claimTx.hash);
+			
+			setTxStatus({
+				success: true,
+				message: "Confirming fee claim transaction...",
+				open: true
+			});
+			
+			await claimTx.wait();
+			console.log("Claim fees transaction confirmed");
+			
+			// Show success message
+			setTxStatus({
+				success: true,
+				message: "Fees claimed successfully!",
+				open: true
+			});
+			
+			// Refresh pending fees
+			fetchPendingFees();
+			
+		} catch (error) {
+			console.error("Error claiming fees:", error);
+			
+			let errorMessage = "Failed to claim fees";
+			if (error.message) {
+				errorMessage += ": " + error.message;
+			}
+			
+			setTxStatus({
+				success: false,
+				message: errorMessage,
+				open: true
+			});
+		} finally {
+			setLoading(false);
+		}
+	};
 
 	// Fetch user's liquidity positions from blockchain
 	const fetchUserLiquidityPositions = async () => {
@@ -417,11 +568,63 @@ const WithdrawLiquidity = () => {
 							</TextField>
 
 							{selectedPool && (
-								<Box sx={{ mt: 1, mb: 2 }}>
-									<Typography variant="body2" color="text.secondary">
-										Available: {maxWithdraw.toFixed(4)} LP tokens
-									</Typography>
-								</Box>
+								<>
+									<Box sx={{ mt: 1, mb: 2 }}>
+										<Typography variant="body2" color="text.secondary">
+											Available: {maxWithdraw.toFixed(4)} LP tokens
+										</Typography>
+									</Box>
+									
+									{/* Unclaimed Fees Section */}
+									<Box sx={{ 
+										mb: 3, 
+										p: 2, 
+										bgcolor: "rgba(0, 230, 118, 0.08)", 
+										borderRadius: 1, 
+										border: "1px solid rgba(0, 230, 118, 0.2)" 
+									}}>
+										<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
+											<Typography variant="subtitle2" fontWeight="bold" color="secondary.main">
+												Unclaimed Fees:
+											</Typography>
+											
+											<Button 
+												size="small" 
+												variant="outlined" 
+												color="secondary"
+												onClick={handleClaimFees}
+												disabled={loading || unclaimedFees.isLoading || 
+													(parseFloat(unclaimedFees.token0) === 0 && parseFloat(unclaimedFees.token1) === 0)}
+											>
+												Claim Fees
+											</Button>
+										</Box>
+										
+										{unclaimedFees.isLoading ? (
+											<Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+												<CircularProgress size={16} />
+												<Typography variant="body2">Loading fees...</Typography>
+											</Box>
+										) : parseFloat(unclaimedFees.token0) === 0 && parseFloat(unclaimedFees.token1) === 0 ? (
+											<Typography variant="body2" color="text.secondary">
+												No unclaimed fees available.
+											</Typography>
+										) : (
+											<Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
+												{parseFloat(unclaimedFees.token0) > 0 && (
+													<Typography variant="body2">
+														{parseFloat(unclaimedFees.token0).toFixed(6)} {unclaimedFees.token0Symbol}
+													</Typography>
+												)}
+												{parseFloat(unclaimedFees.token1) > 0 && (
+													<Typography variant="body2">
+														{parseFloat(unclaimedFees.token1).toFixed(6)} {unclaimedFees.token1Symbol}
+													</Typography>
+												)}
+											</Box>
+										)}
+									</Box>
+								</>
 							)}
 
 							<Grid container spacing={1} alignItems="center">
