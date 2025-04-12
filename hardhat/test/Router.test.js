@@ -70,6 +70,11 @@ describe("Router Contract", function () {
     // Authorize the router in the factory
     await factory.setRouterAuthorization(await router.getAddress(), true);
     
+    // Mint tokens to owner first (this is the fix)
+    await token0.mint(owner.address, ethers.parseEther("20000"));
+    await token1.mint(owner.address, ethers.parseEther("20000"));
+    await token2.mint(owner.address, ethers.parseEther("20000"));
+    
     // Send tokens to user for testing
     await token0.transfer(user.address, ethers.parseEther("10000"));
     await token1.transfer(user.address, ethers.parseEther("10000"));
@@ -527,6 +532,11 @@ describe("Router Contract", function () {
       const token1Address = await token1.getAddress();
       const token2Address = await token2.getAddress();
       
+      // Mint more tokens to owner for multi-hop tests
+      await token0.mint(owner.address, ethers.parseEther("2000"));
+      await token1.mint(owner.address, ethers.parseEther("2000"));
+      await token2.mint(owner.address, ethers.parseEther("2000"));
+      
       // Transfer more tokens to the user for multi-hop tests
       await token0.transfer(user.address, ethers.parseEther("1000"));
       await token1.transfer(user.address, ethers.parseEther("1000"));
@@ -874,6 +884,11 @@ describe("Router Contract", function () {
       const token0Address = await token0.getAddress();
       const token1Address = await token1.getAddress();
       const token2Address = await token2.getAddress();
+      
+      // Mint more tokens to owner for multi-hop tests
+      await token0.mint(owner.address, ethers.parseEther("2000"));
+      await token1.mint(owner.address, ethers.parseEther("2000"));
+      await token2.mint(owner.address, ethers.parseEther("2000"));
       
       // Transfer more tokens to the user for multi-hop tests
       await token0.transfer(user.address, ethers.parseEther("1000"));
