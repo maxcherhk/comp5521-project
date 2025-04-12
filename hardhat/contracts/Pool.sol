@@ -22,6 +22,15 @@ contract Pool is LPToken, ReentrancyGuard {
     uint256 public accumulatedFees0;
     uint256 public accumulatedFees1;
     
+    // Track fee per share values
+    uint256 public feePerShare0;
+    uint256 public feePerShare1;
+    uint256 private constant FEE_PRECISION = 1e18;
+    
+    // Track claimed fees for each user
+    mapping(address => uint256) public userFeeDebt0;
+    mapping(address => uint256) public userFeeDebt1;
+    
     mapping(address => uint256) public tokenBalances; // Now public
 
     event AddedLiquidity(
@@ -168,8 +177,16 @@ contract Pool is LPToken, ReentrancyGuard {
         // Accumulate fees for distribution to liquidity providers
         if (tokenIn == token0()) {
             accumulatedFees0 += feeAmount;
+            // Update fee per share if there are LP tokens outstanding
+            if (totalSupply() > 0) {
+                feePerShare0 += (feeAmount * FEE_PRECISION) / totalSupply();
+            }
         } else {
             accumulatedFees1 += feeAmount;
+            // Update fee per share if there are LP tokens outstanding
+            if (totalSupply() > 0) {
+                feePerShare1 += (feeAmount * FEE_PRECISION) / totalSupply();
+            }
         }
 
         // update pool balances (now considering only the amount after fee for pool calculations)
@@ -209,34 +226,33 @@ contract Pool is LPToken, ReentrancyGuard {
         return (lpBalance * 10000) / totalLP;
     }
 
-    // Function for liquidity providers to claim their share of fees
+    // Updated function for liquidity providers to claim their share of fees
     function claimFees() external nonReentrant returns (uint256 fee0, uint256 fee1) {
         uint256 userLpBalance = balanceOf(msg.sender);
         require(userLpBalance > 0, "No LP tokens");
 
-        uint256 totalLp = totalSupply();
-        uint256 shareRatio = (userLpBalance * 1e18) / totalLp; // Using 1e18 for precision
+        uint256 pendingFee0 = (userLpBalance * feePerShare0) / FEE_PRECISION - userFeeDebt0[msg.sender];
+        uint256 pendingFee1 = (userLpBalance * feePerShare1) / FEE_PRECISION - userFeeDebt1[msg.sender];
 
-        // Calculate user's share of accumulated fees
-        fee0 = (accumulatedFees0 * shareRatio) / 1e18;
-        fee1 = (accumulatedFees1 * shareRatio) / 1e18;
-
-        // Avoid dust amounts
-        if (fee0 > 0) {
-            accumulatedFees0 -= fee0;
-            require(i_token0.transfer(msg.sender, fee0), "Transfer of token0 failed");
+        if (pendingFee0 > 0) {
+            require(i_token0.transfer(msg.sender, pendingFee0), "Transfer of token0 failed");
+            accumulatedFees0 = accumulatedFees0 > pendingFee0 ? accumulatedFees0 - pendingFee0 : 0;
         }
         
-        if (fee1 > 0) {
-            accumulatedFees1 -= fee1;
-            require(i_token1.transfer(msg.sender, fee1), "Transfer of token1 failed");
+        if (pendingFee1 > 0) {
+            require(i_token1.transfer(msg.sender, pendingFee1), "Transfer of token1 failed");
+            accumulatedFees1 = accumulatedFees1 > pendingFee1 ? accumulatedFees1 - pendingFee1 : 0;
         }
 
-        emit FeesCollected(msg.sender, fee0, fee1);
-        return (fee0, fee1);
+        // Update user's fee debt
+        userFeeDebt0[msg.sender] = (userLpBalance * feePerShare0) / FEE_PRECISION;
+        userFeeDebt1[msg.sender] = (userLpBalance * feePerShare1) / FEE_PRECISION;
+
+        emit FeesCollected(msg.sender, pendingFee0, pendingFee1);
+        return (pendingFee0, pendingFee1);
     }
 
-    // Function to claim fees on behalf of a specified user (only usable by verified routers)
+    // Updated function to claim fees on behalf of a specified user
     function claimFeesForUser(address user) external nonReentrant returns (uint256 fee0, uint256 fee1) {
         // Verify that msg.sender is an authorized router
         require(msg.sender == factory || IPoolFactory(factory).isAuthorizedRouter(msg.sender), "Unauthorized");
@@ -244,41 +260,80 @@ contract Pool is LPToken, ReentrancyGuard {
         uint256 userLpBalance = balanceOf(user);
         require(userLpBalance > 0, "No LP tokens");
 
-        uint256 totalLp = totalSupply();
-        uint256 shareRatio = (userLpBalance * 1e18) / totalLp; // Using 1e18 for precision
+        uint256 pendingFee0 = (userLpBalance * feePerShare0) / FEE_PRECISION - userFeeDebt0[user];
+        uint256 pendingFee1 = (userLpBalance * feePerShare1) / FEE_PRECISION - userFeeDebt1[user];
 
-        // Calculate user's share of accumulated fees
-        fee0 = (accumulatedFees0 * shareRatio) / 1e18;
-        fee1 = (accumulatedFees1 * shareRatio) / 1e18;
-
-        // Avoid dust amounts
-        if (fee0 > 0) {
-            accumulatedFees0 -= fee0;
-            require(i_token0.transfer(user, fee0), "Transfer of token0 failed");
+        if (pendingFee0 > 0) {
+            require(i_token0.transfer(user, pendingFee0), "Transfer of token0 failed");
+            accumulatedFees0 = accumulatedFees0 > pendingFee0 ? accumulatedFees0 - pendingFee0 : 0;
         }
         
-        if (fee1 > 0) {
-            accumulatedFees1 -= fee1;
-            require(i_token1.transfer(user, fee1), "Transfer of token1 failed");
+        if (pendingFee1 > 0) {
+            require(i_token1.transfer(user, pendingFee1), "Transfer of token1 failed");
+            accumulatedFees1 = accumulatedFees1 > pendingFee1 ? accumulatedFees1 - pendingFee1 : 0;
         }
 
-        emit FeesCollected(user, fee0, fee1);
-        return (fee0, fee1);
+        // Update user's fee debt
+        userFeeDebt0[user] = (userLpBalance * feePerShare0) / FEE_PRECISION;
+        userFeeDebt1[user] = (userLpBalance * feePerShare1) / FEE_PRECISION;
+
+        emit FeesCollected(user, pendingFee0, pendingFee1);
+        return (pendingFee0, pendingFee1);
     }
 
     function getPendingFees(address user) external view returns (uint256 pendingFee0, uint256 pendingFee1) {
         uint256 userLpBalance = balanceOf(user);
         if (userLpBalance == 0) return (0, 0);
         
-        uint256 totalLp = totalSupply();
-        uint256 shareRatio = (userLpBalance * 1e18) / totalLp;
-
-        pendingFee0 = (accumulatedFees0 * shareRatio) / 1e18;
-        pendingFee1 = (accumulatedFees1 * shareRatio) / 1e18;
+        pendingFee0 = (userLpBalance * feePerShare0) / FEE_PRECISION - userFeeDebt0[user];
+        pendingFee1 = (userLpBalance * feePerShare1) / FEE_PRECISION - userFeeDebt1[user];
         
         return (pendingFee0, pendingFee1);
     }
     
+    // Replace the non-override functions with a new approach
+    // Override transfer function to handle fee debt updates
+    function transfer(address to, uint256 amount) public override returns (bool) {
+        _updateFeesOnTransfer(msg.sender, to, amount);
+        return super.transfer(to, amount);
+    }
+    
+    // Override transferFrom function to handle fee debt updates
+    function transferFrom(address from, address to, uint256 amount) public override returns (bool) {
+        _updateFeesOnTransfer(from, to, amount);
+        return super.transferFrom(from, to, amount);
+    }
+    
+    // Helper function to update fee debts during transfers
+    function _updateFeesOnTransfer(address from, address to, uint256 amount) internal {
+        if (amount > 0) {
+            // Update sender's fee debt
+            userFeeDebt0[from] -= (amount * feePerShare0) / FEE_PRECISION;
+            userFeeDebt1[from] -= (amount * feePerShare1) / FEE_PRECISION;
+            
+            // Update receiver's fee debt
+            userFeeDebt0[to] += (amount * feePerShare0) / FEE_PRECISION;
+            userFeeDebt1[to] += (amount * feePerShare1) / FEE_PRECISION;
+        }
+    }
+    
+    // Update fee debt when minting LP tokens
+    function _mintWithFeeUpdate(address to, uint256 amount) internal {
+        if (amount > 0) {
+            userFeeDebt0[to] += (amount * feePerShare0) / FEE_PRECISION;
+            userFeeDebt1[to] += (amount * feePerShare1) / FEE_PRECISION;
+        }
+        _mint(to, amount);
+    }
+    
+    // Update fee debt when burning LP tokens
+    function _burnWithFeeUpdate(address from, uint256 amount) internal {
+        if (amount > 0) {
+            userFeeDebt0[from] -= (amount * feePerShare0) / FEE_PRECISION;
+            userFeeDebt1[from] -= (amount * feePerShare1) / FEE_PRECISION;
+        }
+        _burn(from, amount);
+    }
 
     function addLiquidityFromToken0(uint256 amount0) public nonReentrant {
         // input validity check
@@ -313,7 +368,7 @@ contract Pool is LPToken, ReentrancyGuard {
         tokenBalances[token1()] += amount1;
         
         // Finally mint LP tokens
-        _mint(msg.sender, amountLP);
+        _mintWithFeeUpdate(msg.sender, amountLP);
 
         emit AddedLiquidity(
             amountLP,
@@ -357,7 +412,7 @@ contract Pool is LPToken, ReentrancyGuard {
         tokenBalances[token0()] += amount0;
         
         // Finally mint LP tokens
-        _mint(msg.sender, amountLP);
+        _mintWithFeeUpdate(msg.sender, amountLP);
 
         emit AddedLiquidity(
             amountLP,
@@ -399,7 +454,7 @@ contract Pool is LPToken, ReentrancyGuard {
         uint256 amount1 = (lpAmount * tokenBalances[token1()]) / totalLP;
 
         // First burn the LP tokens to prevent reentrancy
-        _burn(msg.sender, lpAmount);
+        _burnWithFeeUpdate(msg.sender, lpAmount);
         
         // Update pool balances
         tokenBalances[token0()] -= amount0;
