@@ -70,4 +70,22 @@ The project is configured to work with:
 - Local Hardhat Network (chainId: 31337)
 - Localhost (http://127.0.0.1:8545)
 
-To deploy to other networks, update the `hardhat.config.js` file with your network details and API keys.
+## pool config
+
+```mermaid
+graph LR
+    A[Token A<br>Alpha] --- AB[Pool A-B<br>fee: 300]
+    A --- AD[Pool A-D<br>fee: 500]
+    AB --- B[Token B<br>Beta]
+    B --- BC[Pool B-C<br>fee: 200]
+    BC --- C[Token C<br>Charlie]
+    C --- CD[Pool C-D<br>fee: 100]
+    CD --- D[Token D<br>Delta]
+    AD --- D
+    
+    classDef token fill:#a8e6cf,stroke:#333,stroke-width:1px
+    classDef pool fill:#d8a7ff,stroke:#333,stroke-width:1px
+    
+    class A,B,C,D token
+    class AB,BC,CD,AD pool
+```
