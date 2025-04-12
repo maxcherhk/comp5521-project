@@ -6,8 +6,8 @@ async function main() {
 
   console.log("📦 Loaded addresses:", addresses);
 
-  const amount0 = ethers.parseEther("1000");
-  const amount1 = ethers.parseEther("2000"); // 1:2 ratio
+  const amount0 = ethers.parseEther("10000");
+  const amount1 = ethers.parseEther("20000"); // 1:2 ratio
 
   async function addLiquidity(poolAddr, tokenAAddr, tokenBAddr, tokenASym, tokenBSym) {
     let token0Addr, token1Addr, token0Sym, token1Sym;
@@ -54,7 +54,7 @@ async function main() {
   await addLiquidity(addresses.poolAB, addresses.tokenA, addresses.tokenB, "ALPHA", "BETA");
   await addLiquidity(addresses.poolAD, addresses.tokenA, addresses.tokenD, "ALPHA", "DELTA");
   await addLiquidity(addresses.poolBC, addresses.tokenB, addresses.tokenC, "BETA", "CHARLIE");
-  await addLiquidity(addresses.poolCD, addresses.tokenD, addresses.tokenC, "DELTA", "CHARLIE");
+  await addLiquidity(addresses.poolCD, addresses.tokenC, addresses.tokenD, "CHARLIE", "DELTA");
 }
 
 main().catch((error) => {

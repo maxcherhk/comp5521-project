@@ -109,6 +109,7 @@ export default function SwapBox() {
         const amountIn = ethers.parseEther(sellAmount);
     
         const preview = await router.previewSwapWithBestRouteDefault(tokenIn, amountIn, tokenOut);
+        console.log("🛣️ Best Path:", preview.bestPath);
         const expectedOut = preview[1];
     
         setBuyAmount(ethers.formatEther(expectedOut));
@@ -227,7 +228,7 @@ export default function SwapBox() {
       // Perform swap
       const tx = await router.swapWithBestRouteDefault(tokenIn, amountIn, tokenOut, minAmountOut);
       const receipt = await tx.wait();
-      console.log("✅ Swap complete:", receipt);
+      console.log("Swap complete:", receipt);
   
       // Refresh balances
       if (contracts && typeof setBalances === "function") {
