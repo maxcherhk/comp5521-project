@@ -1,5 +1,5 @@
 const { ethers } = require("hardhat");
-const addresses = require("../frontend/src/utils/deployed-addresses.json");
+const addresses = require("../../frontend/utils/deployed-addresses.json");
 
 async function main() {
   const [deployer] = await ethers.getSigners();

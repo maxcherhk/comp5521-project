@@ -134,7 +134,7 @@ async function main() {
   };
 
   // Create utils directory if it doesn't exist
-  const utilsPath = path.join(__dirname, "../frontend/src/utils");
+  const utilsPath = path.join(__dirname, "../../frontend/utils");
   if (!fs.existsSync(utilsPath)) {
     fs.mkdirSync(utilsPath, { recursive: true });
   }

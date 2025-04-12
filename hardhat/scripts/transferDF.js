@@ -9,7 +9,7 @@ async function main() {
 	const senderWallet = new ethers.Wallet(senderPrivateKey, provider);
 
 	// Replace with the address of the recipient account
-	const recipientAddress = "0x0F6A3F394742B02eA5394A5Ca79800b1103e4735"; // Your address (from MetaMask)
+	const recipientAddress = "0xbf1F18890A2f3E3C36391e8938175621666fA968"; // Your address (from MetaMask)
 
 	// Amount to transfer (in Ether)
 	const amountInEther = "1000"; // 1 ETH
