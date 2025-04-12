@@ -74,13 +74,13 @@ The project is configured to work with:
 
 ```mermaid
 graph LR
-    A[Token A<br>Alpha] --- AB[Pool A-B<br>fee: 300]
+    A((Token A<br>Alpha)) --- AB[Pool A-B<br>fee: 300]
     A --- AD[Pool A-D<br>fee: 500]
-    AB --- B[Token B<br>Beta]
+    AB --- B((Token B<br>Beta))
     B --- BC[Pool B-C<br>fee: 200]
-    BC --- C[Token C<br>Charlie]
+    BC --- C((Token C<br>Charlie))
     C --- CD[Pool C-D<br>fee: 100]
-    CD --- D[Token D<br>Delta]
+    CD --- D((Token D<br>Delta))
     AD --- D
     
     
