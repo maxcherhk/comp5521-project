@@ -3,7 +3,7 @@ const addresses = require("../../frontend/utils/deployed-addresses.json");
 
 async function main() {
   const [deployer] = await ethers.getSigners();
-  const recipientAddress = "0xbf1F18890A2f3E3C36391e8938175621666fA968";
+  const recipientAddress = "0x0F6A3F394742B02eA5394A5Ca79800b1103e4735";
 
   // ✅ Use getContractAt (Ethers v6 + Hardhat style)
   const Alpha = await ethers.getContractAt("NewToken", addresses.tokenA, deployer);
