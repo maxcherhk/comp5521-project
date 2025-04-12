@@ -11,17 +11,21 @@ export const WalletProvider = ({ children }) => {
 	const [account, setAccount] = useState(null);
 	const [provider, setProvider] = useState(null);
 	const [contracts, setContracts] = useState(null);
-	const [balance0, setBalance0] = useState(0);
-	const [balance1, setBalance1] = useState(0);
+	const [balances, setBalances] = useState({
+		ALPHA: "0",
+		BETA: "0",
+		CHARLIE: "0",
+		DELTA: "0",
+	});
 	const [poolInfo, setPoolInfo] = useState({ token0Balance: "0", token1Balance: "0" });
 
 	// Function to connect the wallet
 	const connectWallet = async () => {
-		await connectWalletUtil(setProvider, setAccount, setContracts, setIsWalletConnected, setBalance0, setBalance1, setPoolInfo);
+		await connectWalletUtil(setProvider, setAccount, setContracts, setIsWalletConnected, setBalances, setPoolInfo);
 	};
 
 	const disconnectWallet = () => {
-		disconnectWalletUtil(setProvider, setAccount, setContracts, setIsWalletConnected, setBalance0, setBalance1, setPoolInfo);
+		disconnectWalletUtil(setProvider, setAccount, setContracts, setIsWalletConnected, setBalances, setPoolInfo);
 	};
 
 	return (
@@ -31,8 +35,7 @@ export const WalletProvider = ({ children }) => {
 				account,
 				provider,
 				contracts,
-				balance0,
-				balance1,
+				balances,
 				poolInfo,
 				connectWallet,
 				disconnectWallet,
