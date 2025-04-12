@@ -9,6 +9,7 @@ import SwapBox from "@/components/trade/SwapBox";
 import addresses from "../../../../utils/deployed-addresses.json";
 import abis from "../../../../utils/deployed-abis.json";
 import { getPoolByAddress, getLivePoolStats } from "../../../../utils/token-address";
+import AddLiquidityModal from "@/components/pool/AddLiquidityModal";
 
 export default function PoolDetailPage() {
   const params = useParams();
@@ -19,6 +20,7 @@ export default function PoolDetailPage() {
   const [tvl, setTvl] = useState("$0.00");
   const [volume, setVolume] = useState("$0.00");
   const [apr, setApr] = useState("0.00%");
+  const [isAddLiquidityModalOpen, setIsAddLiquidityModalOpen] = useState(false);
 
   useEffect(() => {
     const loadPoolInfo = async () => {
@@ -52,6 +54,14 @@ export default function PoolDetailPage() {
     alert("Address copied to clipboard!");
   };
 
+  const handleOpenAddLiquidityModal = () => {
+    setIsAddLiquidityModalOpen(true);
+  };
+
+  const handleCloseAddLiquidityModal = () => {
+    setIsAddLiquidityModalOpen(false);
+  };
+
   return (
     <Container>
       <Box mt={6} sx={{ p: 4, backgroundColor: "#0d0d0d", color: "#fff" }}>
@@ -67,7 +77,13 @@ export default function PoolDetailPage() {
           </Typography>
           <Box display="flex" gap={2}>
             <Button variant="contained" color="primary">Swap</Button>
-            <Button variant="contained" color="primary">+ Add Liquidity</Button>
+            <Button 
+              variant="contained" 
+              color="primary"
+              onClick={handleOpenAddLiquidityModal}
+            >
+              + Add Liquidity
+            </Button>
           </Box>
         </Box>
 
@@ -89,6 +105,12 @@ export default function PoolDetailPage() {
 
         <SwapBox />
       </Box>
+      
+      <AddLiquidityModal 
+        open={isAddLiquidityModalOpen} 
+        onClose={handleCloseAddLiquidityModal}
+        initialPoolSelection={poolName} // Pass the current pool name to pre-select it
+      />
     </Container>
   );
 }
