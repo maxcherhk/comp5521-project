@@ -83,8 +83,6 @@ graph LR
     CD --- D[Token D<br>Delta]
     AD --- D
     
-    classDef token fill:#a8e6cf,stroke:#333,stroke-width:1px
-    classDef pool fill:#d8a7ff,stroke:#333,stroke-width:1px
     
     class A,B,C,D token
     class AB,BC,CD,AD pool
