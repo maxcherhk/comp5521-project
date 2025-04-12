@@ -58,30 +58,34 @@ async function main() {
 
   // Create pools through the factory
   console.log("Creating Token A - Token B pool...");
-  const tx1 = await factory.createPool(
+  const tx1 = await factory.createPoolWithFee(
     await tokenA.getAddress(),
-    await tokenB.getAddress()
+    await tokenB.getAddress(),
+    300
   );
   await tx1.wait();
   
   console.log("Creating Token B - Token C pool...");
-  const tx2 = await factory.createPool(
+  const tx2 = await factory.createPoolWithFee(
     await tokenB.getAddress(),
-    await tokenC.getAddress()
+    await tokenC.getAddress(),
+    200
   );
   await tx2.wait();
   
-  console.log("Creating Token A - Token C pool...");
-  const tx3 = await factory.createPool(
-    await tokenA.getAddress(),
-    await tokenC.getAddress()
+  console.log("Creating Token C - Token D pool...");
+  const tx3 = await factory.createPoolWithFee(
+    await tokenC.getAddress(),
+    await tokenD.getAddress(),
+    100
   );
   await tx3.wait();
 
   console.log("Creating Token A - Token D pool...");
-  const tx4 = await factory.createPool(
+  const tx4 = await factory.createPoolWithFee(
     await tokenA.getAddress(),
-    await tokenD.getAddress()
+    await tokenD.getAddress(),
+    500
   );
   await tx4.wait();
 
@@ -103,13 +107,14 @@ async function main() {
   );
   console.log("Pool B-C:", poolBC);
   
-  // Get the A-C pool
-  const poolAC = await factory.findPool(
-    await tokenA.getAddress(),
-    await tokenC.getAddress()
+  // Get the C-D pool
+  const poolCD = await factory.findPool(
+    await tokenC.getAddress(),
+    await tokenD.getAddress()
   );
-  console.log("Pool A-C:", poolAC);
+  console.log("Pool C-D:", poolCD);
   
+  // Get the A-D pool
   const poolAD = await factory.findPool(
     await tokenA.getAddress(),
     await tokenD.getAddress()
@@ -127,7 +132,7 @@ async function main() {
     tokenD: await tokenD.getAddress(),
     poolAB: poolAB,
     poolBC: poolBC,
-    poolAC: poolAC,
+    poolCD: poolCD,
     poolAD: poolAD,
     factory: await factory.getAddress(),
     router: await router.getAddress()

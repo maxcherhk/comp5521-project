@@ -38,6 +38,10 @@ describe("Pool Contract", function () {
 
     [deployer, user] = await ethers.getSigners();
 
+    // Mint tokens to deployer first
+    await token0.mint(deployer.address, ethers.parseEther("10000"));
+    await token1.mint(deployer.address, ethers.parseEther("10000"));
+
     // Send tokens to user for testing
     await token0.transfer(user.address, ethers.parseEther("1000"));
     await token1.transfer(user.address, ethers.parseEther("1000"));
