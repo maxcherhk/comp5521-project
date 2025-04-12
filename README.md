@@ -37,6 +37,7 @@ New terminal
 > npx hardhat run scripts/deploy_multiple_pools.js --network localhost  
 > npx hardhat run scripts/transferTokenForTesting.js --network localhost   
 > npx hardhat run scripts/transferDF.js --network localhost  
+> npx hardhat run scripts/add-liquidity.js --network localhost  
 
 **Step 6**
 Open MetaMask  
