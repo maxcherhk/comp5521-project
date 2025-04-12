@@ -26,7 +26,7 @@ export const connectWallet = async (setProvider, setAccount, setContracts, setIs
 		setPoolInfo(info);
 		console.log(info);
 
-		alert(`Wallet connected!`);
+		//alert(`Wallet connected!`);
 	} catch (error) {
 		console.error("Detailed connection error:", error);
 		alert(`Failed to connect: ${error.message}`);

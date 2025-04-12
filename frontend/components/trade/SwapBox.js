@@ -9,7 +9,7 @@ import UnfoldMoreIcon from "@mui/icons-material/UnfoldMore";
 import { useWallet } from "../../context/WalletContext";
 import { getContracts } from "../../utils/contract";
 import { ethers } from "ethers";
-import { buildPoolMap, findSwapPath, getPoolKey } from "../../utils/contract";
+import { buildPoolMap, findSwapPath, getPoolKey, getTokenBalances } from "../../utils/contract";
 import addresses from "../../utils/deployed-addresses.json";
 import abis from "../../utils/deployed-abis.json";
 
@@ -22,8 +22,12 @@ export default function SwapBox() {
   const [buyToken, setBuyToken] = useState("BETA");
   const [sellAmount, setSellAmount] = useState("");
   const [contracts, setContracts] = useState(null);
+  const [buyAmount, setBuyAmount] = useState("");
+  const [activeField, setActiveField] = useState("sell");
+  const [errorMessage, setErrorMessage] = useState("");
+  const [previewError, setPreviewError] = useState("");
 
-  const { isWalletConnected, provider, balances, connectWallet } = useWallet();
+  const { isWalletConnected, provider, balances, connectWallet, setBalances } = useWallet();
 
   useEffect(() => {
     const loadContracts = async () => {
@@ -36,72 +40,137 @@ export default function SwapBox() {
     loadContracts();
   }, [isWalletConnected, provider]);
 
+  useEffect(() => {
+    const computeSwapValue = async () => {
+      if (!provider || sellToken === buyToken) return;
+  
+      const signer = await provider.getSigner();
+      const poolMap = buildPoolMap();
+      const path = findSwapPath(sellToken, buyToken, poolMap);
+      if (!path) return;
+  
+      try {
+        if (activeField === "sell" && sellAmount) {
+          let currentAmountIn = ethers.parseEther(sellAmount);
+  
+          for (let i = 0; i < path.length; i++) {
+            const [tokenInSymbol, tokenOutSymbol] = path[i];
+            const poolKey = getPoolKey(tokenInSymbol, tokenOutSymbol);
+            const poolAddress = poolMap[poolKey];
+            const pool = new ethers.Contract(poolAddress, abis.Pool, signer);
+            const tokenInAddress = addresses[`token${tokenInSymbol[0]}`];
+            const tokenOutAddress = addresses[`token${tokenOutSymbol[0]}`];
+  
+            const result = await pool.getAmountOut(tokenInAddress, currentAmountIn, tokenOutAddress);
+            currentAmountIn = result[0];
+          }
+  
+          setBuyAmount(ethers.formatEther(currentAmountIn));
+        }
+  
+        if (activeField === "buy" && buyAmount) {
+          let desiredAmountOut = ethers.parseEther(buyAmount);
+          let estimatedInput = desiredAmountOut;
+        
+          for (let i = path.length - 1; i >= 0; i--) {
+            const [tokenInSymbol, tokenOutSymbol] = path[i];
+            const poolKey = getPoolKey(tokenInSymbol, tokenOutSymbol);
+            const poolAddress = poolMap[poolKey];
+            const pool = new ethers.Contract(poolAddress, abis.Pool, signer);
+            const tokenInAddress = addresses[`token${tokenInSymbol[0]}`];
+            const tokenOutAddress = addresses[`token${tokenOutSymbol[0]}`];
+        
+            const result = await pool.getAmountIn(tokenInAddress, desiredAmountOut, tokenOutAddress);
+            estimatedInput = result[0]; // result = [amountIn, feeAmount]
+            desiredAmountOut = estimatedInput; // for previous leg in path
+          }
+        
+          setSellAmount(ethers.formatEther(estimatedInput));
+        }
+
+        setPreviewError("");
+        
+      } catch (err) {
+        console.error("Swap preview error:", err);
+        setPreviewError(err.reason || err.message || "Error calculating swap amount");
+      }
+    };
+  
+    computeSwapValue();
+  }, [sellAmount, buyAmount, sellToken, buyToken, activeField, provider]);
+  
+  
+  
+
   const handleSellMenuOpen = (event) => setSellAnchorEl(event.currentTarget);
   const handleBuyMenuOpen = (event) => setBuyAnchorEl(event.currentTarget);
 
   const handleSelectSellToken = (token) => {
+    if (token === buyToken) {
+      setBuyToken(sellToken); // swap them if selecting same
+    }
     setSellToken(token);
     setSellAnchorEl(null);
   };
-
+  
   const handleSelectBuyToken = (token) => {
+    if (token === sellToken) {
+      setSellToken(buyToken); // swap them if selecting same
+    }
     setBuyToken(token);
     setBuyAnchorEl(null);
   };
 
   const handleSwap = async () => {
     try {
+      setErrorMessage(""); // clear previous
       if (!sellAmount || !sellToken || !buyToken || sellToken === buyToken) {
-        alert("Please enter a valid amount and select two different tokens.");
+        setErrorMessage("Please enter a valid amount and select two different tokens.");
         return;
       }
-
+  
       if (!provider) {
-        alert("Wallet not connected.");
+        setErrorMessage("Wallet not connected.");
         return;
       }
-
+  
       const signer = await provider.getSigner();
       const amountIn = ethers.parseEther(sellAmount);
-
       const poolMap = buildPoolMap();
       const path = findSwapPath(sellToken, buyToken, poolMap);
-
+  
       if (!path) {
-        alert("No available route to swap between selected tokens.");
+        setErrorMessage("No available route to swap between selected tokens.");
         return;
       }
-
-      console.log("Swap path:", path);
-
+  
       let currentAmountIn = amountIn;
-
       for (let i = 0; i < path.length; i++) {
         const [tokenInSymbol, tokenOutSymbol] = path[i];
         const poolKey = getPoolKey(tokenInSymbol, tokenOutSymbol);
         const poolAddress = poolMap[poolKey];
         const pool = new ethers.Contract(poolAddress, abis.Pool, signer);
-
+  
         const tokenInAddress = addresses[`token${tokenInSymbol[0]}`];
         const tokenOutAddress = addresses[`token${tokenOutSymbol[0]}`];
         const tokenIn = new ethers.Contract(tokenInAddress, abis.NewToken, signer);
-
-        console.log(`\nStep ${i + 1}: ${tokenInSymbol} → ${tokenOutSymbol}`);
-        console.log(`Approving ${ethers.formatEther(currentAmountIn)} ${tokenInSymbol}...`);
-
+  
         const approveTx = await tokenIn.approve(poolAddress, currentAmountIn);
         await approveTx.wait();
-        console.log("✅ Approved");
-
+  
         const swapTx = await pool.swap(tokenInAddress, currentAmountIn, tokenOutAddress);
         await swapTx.wait();
-        console.log(`✅ Swapped ${tokenInSymbol} → ${tokenOutSymbol}`);
       }
-
-      alert("Swap completed ✅");
+  
+      if (contracts && provider && typeof setBalances === "function") {
+        const address = await signer.getAddress();
+        const updated = await getTokenBalances(contracts, address);
+        setBalances(updated);
+      }
+  
     } catch (err) {
       console.error("Swap failed:", err);
-      alert(`Swap failed: ${err.message}`);
+      setErrorMessage(err.reason || err.message || "Swap failed unexpectedly.");
     }
   };
 
@@ -117,7 +186,10 @@ export default function SwapBox() {
             placeholder="0"
             disableUnderline
             value={sellAmount}
-            onChange={(e) => setSellAmount(e.target.value)}
+            onFocus={() => setActiveField("sell")}
+            onChange={(e) => {
+              setSellAmount(e.target.value);
+            }}
             sx={{
               input: { fontSize: 28, color: "white" },
               width: "70%",
@@ -167,16 +239,25 @@ export default function SwapBox() {
       <Box sx={{ background: "#1e1e1e", borderRadius: 3, p: 2 }}>
         <Typography variant="body2" color="gray">Buy</Typography>
         <Box display="flex" alignItems="center" justifyContent="space-between" mt={1}>
-          <Input
-            type="number"
-            variant="standard"
-            placeholder="0"
-            disableUnderline
-            disabled
-            sx={{
-              input: { fontSize: 28, color: "white" },
-              width: "70%",
-            }}
+            <Input
+              type="number"
+              variant="standard"
+              placeholder="0"
+              disableUnderline
+              value={buyAmount}
+              onFocus={() => setActiveField("buy")}
+              onChange={(e) => {
+                setBuyAmount(e.target.value);
+              }}
+              sx={{
+                input: { fontSize: 28, color: "white" },
+                width: "70%",
+                "& input": {
+                  MozAppearance: "textfield",
+                  "&::-webkit-outer-spin-button": { display: "none" },
+                  "&::-webkit-inner-spin-button": { display: "none" },
+                },
+              }}
           />
           <Button
             onClick={handleBuyMenuOpen}
@@ -208,6 +289,18 @@ export default function SwapBox() {
         {!isWalletConnected ? "Connect wallet" : "Swap"}
       </Button>
 
+      {errorMessage && (
+        <Typography sx={{ color: "red", mt: 1, mb: 1, fontSize: "14px" }}>
+          ⚠️ {errorMessage}
+        </Typography>
+      )}
+
+      {previewError && (
+        <Typography sx={{ color: "orange", mt: 2, fontSize: "14px" }}>
+          ⚠️ {previewError}
+        </Typography>
+      )}
+
       {/* Dropdown Menus */}
       <Menu anchorEl={sellAnchorEl} open={Boolean(sellAnchorEl)} onClose={() => setSellAnchorEl(null)}>
         {tokens.map((token) => (
@@ -230,7 +323,7 @@ export default function SwapBox() {
             {Object.entries(balances).map(([token, balance]) => (
               <Box key={token} sx={{ backgroundColor: "#2a2a2a", borderRadius: 2, p: 1.5, textAlign: "center" }}>
                 <Typography variant="body1" color="white" fontWeight="bold">
-                  {balance}
+                {Number(balance).toFixed(4)}
                 </Typography>
                 <Typography variant="caption" color="gray">
                   {token}
