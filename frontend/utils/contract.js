@@ -1,56 +1,67 @@
 import { ethers, MaxUint256 } from "ethers";
-import addresses from "./deployed-addresses.json"; // Import addresses from deployed contract addresses
-import abis from "./contract-abis.json"; // Import ABIs from deployed contract ABIs
+import addresses from "./deployed-addresses.json";
+import abis from "./contract-abis.json";
 
-export const getContracts = async (signer) => {
-	try {
-		if (!signer) {
-			throw new Error("No signer provided");
-		}
-
-		const signerAddress = await signer.getAddress();
-		console.log("Signer address:", signerAddress);
-		const token0 = new ethers.Contract(addresses.token0, abis.NewToken, signer);
-		const token1 = new ethers.Contract(addresses.token1, abis.NewToken, signer);
-		console.log(token1);
-		const pool = new ethers.Contract(addresses.pool, abis.Pool, signer);
-
-		const contracts = {
-			token0: {
-				contract: token0,
-				address: addresses.token0,
-			},
-			token1: {
-				contract: token1,
-				address: addresses.token1,
-			},
-			pool: {
-				contract: pool,
-				address: addresses.pool,
-			},
+const tokenMap = {
+	AB: ["tokenA", "tokenB"],
+	BC: ["tokenB", "tokenC"],
+	AC: ["tokenA", "tokenC"],
+	AD: ["tokenA", "tokenD"]
+  };
+  
+  export const getContracts = async (signer) => {
+	if (!signer) throw new Error("No signer provided");
+  
+	const tokenContracts = {
+	  ALPHA: {
+		contract: new ethers.Contract(addresses.tokenA, abis.NewToken, signer),
+		address: addresses.tokenA,
+	  },
+	  BETA: {
+		contract: new ethers.Contract(addresses.tokenB, abis.NewToken, signer),
+		address: addresses.tokenB,
+	  },
+	  CHARLIE: {
+		contract: new ethers.Contract(addresses.tokenC, abis.NewToken, signer),
+		address: addresses.tokenC,
+	  },
+	  DELTA: {
+		contract: new ethers.Contract(addresses.tokenD, abis.NewToken, signer),
+		address: addresses.tokenD,
+	  },
+	};
+  
+	// Optional: load pools into a map too
+	const poolContracts = {};
+	for (const key in addresses) {
+	  if (key.startsWith("pool")) {
+		const tokenPair = key.replace("pool", ""); // e.g. AB
+		poolContracts[tokenPair] = {
+		  address: addresses[key],
+		  contract: new ethers.Contract(addresses[key], abis.Pool, signer),
 		};
-
-		console.log("Contracts initialized with addresses:", {
-			token0: contracts.token0.address,
-			token1: contracts.token1.address,
-			pool: contracts.pool.address,
-		});
-
-		return contracts;
-	} catch (error) {
-		console.error("Error in getContracts:", error);
-		throw error;
+	  }
 	}
-};
+  
+	return {
+	  tokens: tokenContracts,
+	  pools: poolContracts,
+	};
+  };
 
 export const getTokenBalances = async (contracts, address) => {
 	try {
 		console.log("Getting token balances for address:", contracts);
-		const token0Balance = await contracts.token0.contract.balanceOf(address);
-		const token1Balance = await contracts.token1.contract.balanceOf(address);
+		const token0Balance = await contracts.tokens.ALPHA.contract.balanceOf(address) || 0;
+		const token1Balance = await contracts.tokens.BETA.contract.balanceOf(address) || 0;
+		const token2Balance = await contracts.tokens.CHARLIE.contract.balanceOf(address) || 0;
+		const token3Balance = await contracts.tokens.DELTA.contract.balanceOf(address) || 0;
+	  
 		return {
-			token0: ethers.formatEther(token0Balance),
-			token1: ethers.formatEther(token1Balance),
+		  ALPHA: ethers.formatEther(token0Balance),
+		  BETA: ethers.formatEther(token1Balance),
+		  CHARLIE: ethers.formatEther(token2Balance),
+		  DELTA: ethers.formatEther(token3Balance)
 		};
 	} catch (error) {
 		console.error("Error in getTokenBalances:", error);
@@ -58,12 +69,23 @@ export const getTokenBalances = async (contracts, address) => {
 	}
 };
 
-export const getPoolInfo = async (contracts) => {
+export const getPoolInfo = async (contracts, tokenASymbol, tokenBSymbol) => {
 	try {
-		const token0Balance = await contracts.token0.contract.balanceOf(contracts.pool.address);
-		const token1Balance = await contracts.token1.contract.balanceOf(contracts.pool.address);
-		console.log("Token0 balance in pool:", token0Balance);
-		console.log("Token1 balance in pool:", token1Balance);
+		const tokenA = contracts.tokens[tokenASymbol];
+		const tokenB = contracts.tokens[tokenBSymbol];
+
+		if (!tokenA || !tokenB) throw new Error("Invalid token symbols");
+
+		const poolKey = getPoolKey(tokenASymbol, tokenBSymbol);
+		const pool = contracts.pools[poolKey];
+
+		if (!pool) throw new Error("Pool does not exist for selected pair");
+
+		const token0Balance = await tokenA.contract.balanceOf(pool.address);
+		const token1Balance = await tokenB.contract.balanceOf(pool.address);
+
+		console.log("Token balances in pool:", token0Balance, token1Balance);
+
 		return {
 			token0Balance: ethers.formatEther(token0Balance),
 			token1Balance: ethers.formatEther(token1Balance),
@@ -73,3 +95,51 @@ export const getPoolInfo = async (contracts) => {
 		throw error;
 	}
 };
+
+
+const symbolToTokenLetter = {
+	ALPHA: "A",
+	BETA: "B",
+	CHARLIE: "C",
+	DELTA: "D",
+  };
+  
+  export const getPoolKey = (token1Symbol, token2Symbol) => {
+	const a = symbolToTokenLetter[token1Symbol];
+	const b = symbolToTokenLetter[token2Symbol];
+	if (!a || !b) throw new Error("Invalid token symbol");
+  
+	return a < b ? `${a}${b}` : `${b}${a}`; // e.g., "AB"
+  };
+
+
+  export const buildPoolMap = () => {
+	const poolMap = {};
+	for (const key in addresses) {
+	  if (key.startsWith("pool")) {
+		const pair = key.replace("pool", ""); // e.g., "AB"
+		poolMap[pair] = addresses[key];
+	  }
+	}
+	return poolMap;
+  };
+  
+  // Finds the best route: either direct or 2-step path via intermediate token
+  export const findSwapPath = (sellToken, buyToken, poolMap) => {
+	const direct = getPoolKey(sellToken, buyToken);
+	if (poolMap[direct]) return [[sellToken, buyToken]];
+  
+	const tokens = ["ALPHA", "BETA", "CHARLIE", "DELTA"];
+	for (const mid of tokens) {
+	  if (mid === sellToken || mid === buyToken) continue;
+  
+	  const leg1 = getPoolKey(sellToken, mid);
+	  const leg2 = getPoolKey(mid, buyToken);
+  
+	  if (poolMap[leg1] && poolMap[leg2]) {
+		return [[sellToken, mid], [mid, buyToken]]; // 2-hop path
+	  }
+	}
+  
+	return null; // no valid route
+  };

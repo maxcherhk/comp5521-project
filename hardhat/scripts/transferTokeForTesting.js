@@ -7,7 +7,7 @@ async function main() {
   const provider = new ethers.JsonRpcProvider("http://127.0.0.1:8545");
 
   // Replace with the address of the recipient account
-  const recipientAddress = "xxxx"; // My address (from MetaMask)
+  const recipientAddress = "0x0F6A3F394742B02eA5394A5Ca79800b1103e4735"; // My address (from MetaMask)
 
   const NewToken = await hre.ethers.getContractFactory("NewToken");
   const Alpha = NewToken.attach(addresses.tokenA);
