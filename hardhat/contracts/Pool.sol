@@ -80,6 +80,30 @@ contract Pool is LPToken, ReentrancyGuard {
         return address(i_token1);
     }
 
+    function getAmountIn(
+        address tokenIn,
+        uint256 amountOut,
+        address tokenOut
+    ) public view returns (uint256 amountIn, uint256 feeAmount) {
+        uint256 balanceIn = tokenBalances[tokenIn];
+        uint256 balanceOut = tokenBalances[tokenOut];
+
+        require(balanceOut > amountOut, "Insufficient output reserve");
+        require(balanceIn > 0 && balanceOut > 0, "Insufficient liquidity");
+
+        // Avoid overflow: denominator must not be zero
+        uint256 numerator = balanceIn * amountOut;
+        uint256 denominator = balanceOut - amountOut;
+
+        amountIn = numerator / denominator;
+
+        // Apply fee
+        feeAmount = (amountIn * feeRate) / 10000;
+        amountIn += feeAmount;
+
+        return (amountIn, feeAmount);
+    }
+    
     function getAmountOut(
         address tokenIn,
         uint256 amountIn,

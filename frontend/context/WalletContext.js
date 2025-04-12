@@ -1,5 +1,5 @@
 "use client";
-import React, { createContext, useState, useContext } from "react";
+import React, { createContext, useState, useContext, useEffect } from "react";
 import { connectWallet as connectWalletUtil } from "../utils/wallet"; // Import the utility function
 import { disconnectWallet as disconnectWalletUtil } from "../utils/wallet";
 // Create the Wallet Context
@@ -19,13 +19,24 @@ export const WalletProvider = ({ children }) => {
 	});
 	const [poolInfo, setPoolInfo] = useState({ token0Balance: "0", token1Balance: "0" });
 
+	useEffect(() => {
+		const reconnectWallet = async () => {
+		  if (localStorage.getItem("isWalletConnected") === "true") {
+			await connectWallet();
+		  }
+		};
+		reconnectWallet();
+	  }, []);
+	  
 	// Function to connect the wallet
 	const connectWallet = async () => {
 		await connectWalletUtil(setProvider, setAccount, setContracts, setIsWalletConnected, setBalances, setPoolInfo);
+		localStorage.setItem("isWalletConnected", "true");
 	};
 
 	const disconnectWallet = () => {
 		disconnectWalletUtil(setProvider, setAccount, setContracts, setIsWalletConnected, setBalances, setPoolInfo);
+		localStorage.removeItem("isWalletConnected");
 	};
 
 	return (
@@ -39,6 +50,7 @@ export const WalletProvider = ({ children }) => {
 				poolInfo,
 				connectWallet,
 				disconnectWallet,
+				setBalances,
 			}}
 		>
 			{children}
