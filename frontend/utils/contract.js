@@ -1,6 +1,6 @@
 import { ethers, MaxUint256 } from "ethers";
 import addresses from "./deployed-addresses.json";
-import abis from "./contract-abis.json";
+import abis from "./deployed-abis.json";
 
 const tokenMap = {
 	AB: ["tokenA", "tokenB"],

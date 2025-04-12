@@ -11,7 +11,7 @@ import { getContracts } from "../../utils/contract";
 import { ethers } from "ethers";
 import { buildPoolMap, findSwapPath, getPoolKey } from "../../utils/contract";
 import addresses from "../../utils/deployed-addresses.json";
-import abis from "../../utils/contract-abis.json";
+import abis from "../../utils/deployed-abis.json";
 
 const tokens = ["ALPHA", "BETA", "CHARLIE", "DELTA"];
 

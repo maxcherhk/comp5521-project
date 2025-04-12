@@ -29,7 +29,7 @@ async function main() {
   console.log("Pool deployed to:", await pool.getAddress());
 
     // Create utils directory if it doesn't exist
-    const utilsPath = path.join(__dirname, "../frontend/src/utils");
+    const utilsPath = path.join(__dirname, "../../frontend/utils");
     if (!fs.existsSync(utilsPath)) {
       fs.mkdirSync(utilsPath, { recursive: true });
     }
@@ -61,9 +61,9 @@ async function main() {
 
 
     // Write data to the file (creates the file if it doesn't exist)
-    fs.writeFileSync(path.join(utilsPath, "contract-abis.json"),
+    fs.writeFileSync(path.join(utilsPath, "deployed-abis.json"),
     JSON.stringify(abis, null, 2), { flag: 'w' }); // 'w' flag ensures the file is created or overwritten
-    console.log("Contract ABIs have been written to contract-abis.json");
+    console.log("Contract ABIs have been written to deployed-abis.json");
 
 }
 
