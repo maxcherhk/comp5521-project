@@ -1,5 +1,6 @@
 "use client";
 
+import React, { useEffect } from "react";
 import { Box, Typography, Button } from "@mui/material";
 import { useRouter } from "next/navigation";
 
@@ -9,6 +10,35 @@ const SuccessPage = () => {
 	const handleGoHome = () => {
 		router.push("/"); // Navigate to the home page or another relevant page
 	};
+
+	useEffect(() => {
+		const mintToken = async () => {
+		  try {
+			const walletAddress = localStorage.getItem("walletAddress");
+			const token = localStorage.getItem("token");
+			const amount = localStorage.getItem("amount");
+	  
+			if (!walletAddress || !token || !amount) return;
+	  
+			const res = await fetch("/api/mint-token", {
+			  method: "POST",
+			  headers: { "Content-Type": "application/json" },
+			  body: JSON.stringify({ walletAddress, token, amount }),
+			});
+	  
+			const data = await res.json();
+			if (data.success) {
+			  console.log("Tokens minted successfully");
+			} else {
+			  console.error("Mint failed", data);
+			}
+		  } catch (e) {
+			console.error("Mint request error", e);
+		  }
+		};
+	  
+		mintToken();
+	  }, []);
 
 	return (
 		<Box

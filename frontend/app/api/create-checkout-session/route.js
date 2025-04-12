@@ -16,6 +16,10 @@ export async function POST(req) {
 
 		// Create a Stripe checkout session
 		const session = await stripe.checkout.sessions.create({
+			metadata: {
+				walletAddress: req.body.walletAddress,
+				token: req.body.token,
+			},
 			payment_method_types: ["card"],
 			line_items: [
 				{

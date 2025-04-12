@@ -5,7 +5,6 @@ async function main() {
   const [deployer] = await ethers.getSigners();
   const recipientAddress = "0x0F6A3F394742B02eA5394A5Ca79800b1103e4735";
 
-  // ✅ Use getContractAt (Ethers v6 + Hardhat style)
   const Alpha = await ethers.getContractAt("NewToken", addresses.tokenA, deployer);
   const Beta = await ethers.getContractAt("NewToken", addresses.tokenB, deployer);
   const Gamma = await ethers.getContractAt("NewToken", addresses.tokenC, deployer);
