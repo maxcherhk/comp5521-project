@@ -35,6 +35,11 @@ const AddLiquidityModal = ({ open, onClose }) => {
 		poolShare: "0",
 		isCalculating: false
 	});
+	const [userLpInfo, setUserLpInfo] = useState({
+		balance: "0",
+		poolPercentage: "0",
+		isLoading: false
+	});
 	const [isFirstTokenBase, setIsFirstTokenBase] = useState(true); // Track which token is the base for calculations
 
 	useEffect(() => {
@@ -94,9 +99,57 @@ const AddLiquidityModal = ({ open, onClose }) => {
 				token1Reserve: formattedReserve1
 			});
 			
+			// Fetch user's LP balance
+			await fetchUserLpBalance(pool.address, poolContract);
+			
 		} catch (error) {
 			console.error("Error fetching pool reserves:", error);
 			setPoolReserves({ token0: "", token1: "", token0Reserve: "0", token1Reserve: "0" });
+		}
+	};
+
+	const fetchUserLpBalance = async (poolAddress, poolContract) => {
+		try {
+			setUserLpInfo(prev => ({ ...prev, isLoading: true }));
+			
+			// Connect to provider and get user's address
+			if (!window.ethereum) throw new Error("MetaMask is not installed");
+			const provider = new ethers.BrowserProvider(window.ethereum);
+			const accounts = await provider.send("eth_requestAccounts", []);
+			const userAddress = accounts[0];
+			
+			// If no poolContract was passed, create one
+			if (!poolContract) {
+				poolContract = new ethers.Contract(poolAddress, abis.Pool, provider);
+			}
+			
+			// Get user's LP token balance
+			const lpBalance = await poolContract.balanceOf(userAddress);
+			
+			// Get total supply of LP tokens
+			const totalSupply = await poolContract.totalSupply();
+			
+			// Calculate user's percentage of the pool
+			let poolPercentage = "0";
+			if (totalSupply > 0 && lpBalance > 0) {
+				poolPercentage = ((Number(lpBalance) / Number(totalSupply)) * 100).toFixed(2);
+			}
+			
+			// Format LP balance to human readable format
+			const formattedLpBalance = ethers.formatEther(lpBalance);
+			
+			setUserLpInfo({
+				balance: formattedLpBalance,
+				poolPercentage,
+				isLoading: false
+			});
+		} catch (error) {
+			console.error("Error fetching user LP balance:", error);
+			setUserLpInfo({
+				balance: "0",
+				poolPercentage: "0",
+				isLoading: false
+			});
 		}
 	};
 
@@ -111,6 +164,13 @@ const AddLiquidityModal = ({ open, onClose }) => {
 			amount: "0",
 			poolShare: "0",
 			isCalculating: false
+		});
+		
+		// Reset user LP info
+		setUserLpInfo({
+			balance: "0",
+			poolPercentage: "0", 
+			isLoading: true
 		});
 		
 		// If a valid pool is selected, fetch its reserves
@@ -507,6 +567,40 @@ const AddLiquidityModal = ({ open, onClose }) => {
 								</Box>
 							</Box>
               
+							{/* Display user's current LP position */}
+							<Box sx={{ 
+								mb: 3, 
+								p: 2, 
+								bgcolor: 'rgba(76, 175, 80, 0.08)', 
+								borderRadius: 1,
+								display: 'flex',
+								flexDirection: 'column',
+								gap: 1
+							}}>
+								<Typography variant="subtitle2" color="success.main">
+									Your Current Position:
+								</Typography>
+								{userLpInfo.isLoading ? (
+									<Box display="flex" alignItems="center" gap={1}>
+										<CircularProgress size={16} />
+										<Typography variant="body2">Loading your position...</Typography>
+									</Box>
+								) : Number(userLpInfo.balance) > 0 ? (
+									<Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+										<Typography variant="body2">
+											{parseFloat(userLpInfo.balance).toLocaleString(undefined, { maximumFractionDigits: 6 })} LP Tokens
+										</Typography>
+										<Typography variant="body2">
+											{userLpInfo.poolPercentage}% of pool
+										</Typography>
+									</Box>
+								) : (
+									<Typography variant="body2" color="text.secondary">
+										You don't have any LP tokens in this pool yet.
+									</Typography>
+								)}
+							</Box>
+              
 							<TextField
 								label={`${tokenA} Amount`}
 								type="number"
@@ -556,6 +650,34 @@ const AddLiquidityModal = ({ open, onClose }) => {
 										</>
 									)}
 								</Box>
+								{Number(userLpInfo.balance) > 0 && Number(lpTokenEstimate.amount) > 0 && (
+									<Box sx={{ mt: 1, pt: 1, borderTop: '1px dashed rgba(0,0,0,0.1)' }}>
+										<Typography variant="subtitle2" color="primary.dark">
+											After this transaction:
+										</Typography>
+										<Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+											<Typography variant="body2">
+												{(parseFloat(userLpInfo.balance) + parseFloat(lpTokenEstimate.amount)).toLocaleString(undefined, { maximumFractionDigits: 6 })} LP Tokens
+											</Typography>
+											<Typography variant="body2">
+												{(() => {
+													// Convert percentages to numbers
+													const currentPercentage = parseFloat(userLpInfo.poolPercentage);
+													const newSharePercentage = parseFloat(lpTokenEstimate.poolShare);
+													
+													// Calculate remaining percentage after new addition
+													const remainingPercentage = 100 - newSharePercentage;
+													
+													// Calculate updated percentage
+													// Current stake will be diluted proportionally to the new tokens
+													const updatedPercentage = (currentPercentage * remainingPercentage / 100) + newSharePercentage;
+													
+													return updatedPercentage.toFixed(2);
+												})()}% of pool
+											</Typography>
+										</Box>
+									</Box>
+								)}
 							</Box>
 						</>
 					)}
