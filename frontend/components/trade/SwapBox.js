@@ -41,7 +41,8 @@ export default function SwapBox() {
   }, [isWalletConnected, provider]);
 
   useEffect(() => {
-    const computeSwapValue = async () => {
+    //Client-side
+    /*const computeSwapValue = async () => {
       if (!provider || sellToken === buyToken) return;
   
       const signer = await provider.getSigner();
@@ -94,6 +95,27 @@ export default function SwapBox() {
         console.error("Swap preview error:", err);
         setPreviewError(err.reason || err.message || "Error calculating swap amount");
       }
+    };*/
+
+    const computeSwapValue = async () => {
+      if (!provider || sellToken === buyToken || !sellAmount) return;
+    
+      try {
+        const signer = await provider.getSigner();
+        const router = new ethers.Contract(addresses.router, abis.Router, signer);
+    
+        const tokenIn = addresses[`token${sellToken[0]}`];
+        const tokenOut = addresses[`token${buyToken[0]}`];
+        const amountIn = ethers.parseEther(sellAmount);
+    
+        const preview = await router.previewSwapWithBestRouteDefault(tokenIn, amountIn, tokenOut);
+        const expectedOut = preview[1];
+    
+        setBuyAmount(ethers.formatEther(expectedOut));
+      } catch (err) {
+        console.error("Preview failed:", err);
+        setBuyAmount("");
+      }
     };
   
     computeSwapValue();
@@ -121,6 +143,7 @@ export default function SwapBox() {
     setBuyAnchorEl(null);
   };
 
+  /* Swap Best Route in client-side
   const handleSwap = async () => {
     try {
       setErrorMessage(""); // clear previous
@@ -171,6 +194,53 @@ export default function SwapBox() {
     } catch (err) {
       console.error("Swap failed:", err);
       setErrorMessage(err.reason || err.message || "Swap failed unexpectedly.");
+    }
+  };*/
+
+  const handleSwap = async () => {
+    try {
+      if (!sellAmount || !sellToken || !buyToken || sellToken === buyToken) {
+        alert("Please enter a valid amount and select two different tokens.");
+        return;
+      }
+  
+      if (!provider) {
+        alert("Wallet not connected.");
+        return;
+      }
+  
+      const signer = await provider.getSigner();
+      const amountIn = ethers.parseEther(sellAmount);
+      const tokenIn = addresses[`token${sellToken[0]}`];
+      const tokenOut = addresses[`token${buyToken[0]}`];
+      const router = new ethers.Contract(addresses.router, abis.Router, signer);
+  
+      // Set slippage tolerance (e.g., 1%)
+      const preview = await router.previewSwapWithBestRouteDefault(tokenIn, amountIn, tokenOut);
+      const minAmountOut = preview.expectedOutput * BigInt(99) / BigInt(100); // 1% slippage
+  
+      // Approve the router to spend input token
+      const tokenContract = new ethers.Contract(tokenIn, abis.NewToken, signer);
+      const approveTx = await tokenContract.approve(addresses.router, amountIn);
+      await approveTx.wait();
+  
+      // Perform swap
+      const tx = await router.swapWithBestRouteDefault(tokenIn, amountIn, tokenOut, minAmountOut);
+      const receipt = await tx.wait();
+      console.log("✅ Swap complete:", receipt);
+  
+      // Refresh balances
+      if (contracts && typeof setBalances === "function") {
+        const address = await signer.getAddress();
+        const updated = await getTokenBalances(contracts, address);
+        setBalances(updated);
+      }
+  
+      alert("Swap completed!");
+  
+    } catch (err) {
+      console.error("Swap failed:", err);
+      alert(`Swap failed: ${err.reason || err.message}`);
     }
   };
 
