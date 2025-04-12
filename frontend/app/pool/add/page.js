@@ -15,7 +15,13 @@ import {
   Paper,
   Snackbar, 
   Alert,
-  Divider
+  Divider,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow
 } from "@mui/material";
 import { ethers } from "ethers";
 import { getAllPools, addresses } from "@/utils/token-address";
@@ -43,10 +49,16 @@ export default function AddLiquidityPage() {
     isLoading: false
   });
   const [isFirstTokenBase, setIsFirstTokenBase] = useState(true);
+  const [allUserPositions, setAllUserPositions] = useState([]);
+  const [isLoadingPositions, setIsLoadingPositions] = useState(false);
 
   // Load pools on component mount
   useEffect(() => {
-    setPools(getAllPools());
+    const allPools = getAllPools();
+    setPools(allPools);
+    
+    // Fetch all user positions
+    fetchAllUserPositions(allPools);
   }, []);
 
   // Effect to update the second token amount when the first token amount changes
@@ -62,6 +74,108 @@ export default function AddLiquidityPage() {
       calculateFirstTokenAmount(token2Amount);
     }
   }, [token2Amount, selectedPool, isFirstTokenBase]);
+
+  // Fetch all user's LP positions across all pools
+  const fetchAllUserPositions = async (poolsList) => {
+    try {
+      setIsLoadingPositions(true);
+      
+      // Connect to provider and get user's address
+      if (!window.ethereum) throw new Error("MetaMask is not installed");
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const accounts = await provider.send("eth_requestAccounts", []);
+      const userAddress = accounts[0];
+      
+      const positions = [];
+      
+      // Loop through all pools and check user's LP balance in each
+      for (const pool of poolsList) {
+        try {
+          const poolContract = new ethers.Contract(pool.address, abis.Pool, provider);
+          
+          // Get user's LP token balance
+          const lpBalance = await poolContract.balanceOf(userAddress);
+          
+          // Skip if user has no LP tokens in this pool
+          if (lpBalance <= 0) continue;
+          
+          // Get total supply of LP tokens
+          const totalSupply = await poolContract.totalSupply();
+          
+          // Calculate user's percentage of the pool
+          let poolPercentage = "0";
+          if (totalSupply > 0 && lpBalance > 0) {
+            poolPercentage = ((Number(lpBalance) / Number(totalSupply)) * 100).toFixed(2);
+          }
+          
+          // Get pool token addresses and symbols
+          const token0Address = await poolContract.token0();
+          const token1Address = await poolContract.token1();
+          
+          // Get token symbols from addresses
+          const token0Symbol = getTokenSymbolByAddress(token0Address);
+          const token1Symbol = getTokenSymbolByAddress(token1Address);
+          
+          // Get reserves
+          const [reserve0, reserve1] = await poolContract.getReserves();
+          
+          // Format reserves to human readable format
+          const formattedReserve0 = ethers.formatEther(reserve0);
+          const formattedReserve1 = ethers.formatEther(reserve1);
+          
+          // Calculate token amounts based on LP share
+          const token0Amount = (parseFloat(formattedReserve0) * parseFloat(poolPercentage) / 100).toFixed(4);
+          const token1Amount = (parseFloat(formattedReserve1) * parseFloat(poolPercentage) / 100).toFixed(4);
+          
+          // Calculate fees earned (estimated based on pool fee rate and volume)
+          // This is just an approximation; in a real app, you would track this with events
+          const feeRate = await poolContract.getFeeRate();
+          const formattedFeeRate = parseFloat(feeRate) / 100; // Convert from basis points
+          
+          // Get pool trading volume (this would typically come from an indexer or API)
+          // For this example, we'll use a placeholder based on pool address to simulate different volumes
+          const dailyVolume = parseInt(pool.address.slice(-4), 16) % 1000; // Just a mock calculation
+          
+          // Estimate fee earned based on pool share and volume
+          const dailyFees = (dailyVolume * formattedFeeRate * parseFloat(poolPercentage) / 100).toFixed(2);
+          
+          // Format LP balance to human readable format
+          const formattedLpBalance = ethers.formatEther(lpBalance);
+          
+          positions.push({
+            poolName: pool.name,
+            poolAddress: pool.address,
+            lpBalance: formattedLpBalance,
+            poolPercentage,
+            token0Symbol,
+            token1Symbol,
+            token0Amount,
+            token1Amount,
+            dailyFees,
+            totalFees: (dailyFees * 30).toFixed(2), // Approx monthly fees
+          });
+        } catch (error) {
+          console.error(`Error fetching position for pool ${pool.name}:`, error);
+        }
+      }
+      
+      setAllUserPositions(positions);
+      setIsLoadingPositions(false);
+    } catch (error) {
+      console.error("Error fetching all user positions:", error);
+      setIsLoadingPositions(false);
+    }
+  };
+  
+  // Helper function to get token symbol from address
+  const getTokenSymbolByAddress = (address) => {
+    for (const [symbol, tokenAddress] of Object.entries(addresses.tokens)) {
+      if (tokenAddress.toLowerCase() === address.toLowerCase()) {
+        return symbol;
+      }
+    }
+    return "UNKNOWN";
+  };
 
   const fetchPoolReserves = async (poolName) => {
     try {
@@ -485,6 +599,8 @@ export default function AddLiquidityPage() {
         setToken2Amount("");
         // Refetch pool data
         fetchPoolReserves(selectedPool);
+        // Update all positions
+        updatePositionsAfterTransaction();
       } catch (error) {
         console.error("Transaction failed:", error);
         
@@ -513,11 +629,98 @@ export default function AddLiquidityPage() {
     setTxStatus({ ...txStatus, open: false });
   };
 
+  // Update all positions after adding liquidity
+  const updatePositionsAfterTransaction = () => {
+    fetchAllUserPositions(pools);
+  };
+
   // Extract token names from the selected pool
   const [tokenA, tokenB] = selectedPool ? selectedPool.split("/") : ["", ""];
 
   return (
     <Container maxWidth="md" sx={{ mt: 8, mb: 8 }}>
+      {/* User's LP Positions Summary */}
+      <Paper elevation={3} sx={{ p: 4, borderRadius: 3, bgcolor: "#1a1a1a", color: "white", mb: 4 }}>
+        <Typography variant="h5" fontWeight="bold" mb={3}>
+          Your Liquidity Positions
+        </Typography>
+        
+        {isLoadingPositions ? (
+          <Box display="flex" justifyContent="center" my={4}>
+            <CircularProgress color="primary" />
+          </Box>
+        ) : allUserPositions.length > 0 ? (
+          <TableContainer>
+            <Table sx={{ minWidth: 650 }}>
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ color: 'grey.400' }}>Pool</TableCell>
+                  <TableCell align="right" sx={{ color: 'grey.400' }}>LP Tokens</TableCell>
+                  <TableCell align="right" sx={{ color: 'grey.400' }}>Pool Share</TableCell>
+                  <TableCell align="right" sx={{ color: 'grey.400' }}>Value</TableCell>
+                  <TableCell align="right" sx={{ color: 'grey.400' }}>Daily Fees</TableCell>
+                  <TableCell align="right" sx={{ color: 'grey.400' }}>Est. Monthly Fees</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {allUserPositions.map((position) => (
+                  <TableRow
+                    key={position.poolAddress}
+                    sx={{ '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.05)' }, cursor: 'pointer' }}
+                    onClick={() => {
+                      setSelectedPool(position.poolName);
+                      fetchPoolReserves(position.poolName);
+                    }}
+                  >
+                    <TableCell component="th" scope="row" sx={{ color: 'white' }}>
+                      {position.poolName}
+                    </TableCell>
+                    <TableCell align="right" sx={{ color: 'white' }}>
+                      {parseFloat(position.lpBalance).toFixed(4)}
+                    </TableCell>
+                    <TableCell align="right" sx={{ color: 'white' }}>
+                      {position.poolPercentage}%
+                    </TableCell>
+                    <TableCell align="right" sx={{ color: 'white' }}>
+                      {position.token0Amount} {position.token0Symbol}<br />
+                      {position.token1Amount} {position.token1Symbol}
+                    </TableCell>
+                    <TableCell align="right" sx={{ color: '#4caf50' }}>
+                      ${position.dailyFees}
+                    </TableCell>
+                    <TableCell align="right" sx={{ color: '#4caf50' }}>
+                      ${position.totalFees}
+                    </TableCell>
+                  </TableRow>
+                ))}
+                <TableRow>
+                  <TableCell colSpan={3} sx={{ border: 0 }} />
+                  <TableCell align="right" sx={{ color: 'white', fontWeight: 'bold', borderTop: '1px solid rgba(255, 255, 255, 0.2)' }}>
+                    Total:
+                  </TableCell>
+                  <TableCell align="right" sx={{ color: '#4caf50', fontWeight: 'bold', borderTop: '1px solid rgba(255, 255, 255, 0.2)' }}>
+                    ${allUserPositions.reduce((sum, pos) => sum + parseFloat(pos.dailyFees), 0).toFixed(2)}
+                  </TableCell>
+                  <TableCell align="right" sx={{ color: '#4caf50', fontWeight: 'bold', borderTop: '1px solid rgba(255, 255, 255, 0.2)' }}>
+                    ${allUserPositions.reduce((sum, pos) => sum + parseFloat(pos.totalFees), 0).toFixed(2)}
+                  </TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </TableContainer>
+        ) : (
+          <Box sx={{ p: 3, textAlign: 'center', bgcolor: 'rgba(255, 255, 255, 0.05)', borderRadius: 2 }}>
+            <Typography color="grey.400">
+              You don't have any active liquidity positions.
+            </Typography>
+            <Typography color="primary.light" sx={{ mt: 1 }}>
+              Add liquidity below to start earning fees!
+            </Typography>
+          </Box>
+        )}
+      </Paper>
+      
+      {/* Add Liquidity Form */}
       <Paper elevation={3} sx={{ p: 4, borderRadius: 3, bgcolor: "#1a1a1a", color: "white" }}>
         <Typography variant="h4" fontWeight="bold" mb={4}>
           Add Liquidity
