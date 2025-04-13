@@ -30,7 +30,7 @@ The Hardhat directory contains the contract scripts, token scripts, and the Open
    - Add a custom network > RPC URL: http://localhost:8545 > Chain ID: 31337
    - Import tokens as described in Step 6 below
 
-## Manual Setup
+## Running in local 
 
 **Step 1**
 New terminal  
