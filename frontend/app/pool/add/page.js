@@ -649,7 +649,7 @@ export default function AddLiquidityPage() {
           <Box display="flex" justifyContent="center" my={4}>
             <CircularProgress color="primary" />
           </Box>
-        ) : allUserPositions.length > 0 ? (
+        ) : allUserPositions.length > 0 && allUserPositions.some(pos => parseFloat(pos.lpBalance) >= 0.001) ? (
           <TableContainer>
             <Table sx={{ minWidth: 650 }}>
               <TableHead>
@@ -663,7 +663,9 @@ export default function AddLiquidityPage() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {allUserPositions.map((position) => (
+                {allUserPositions
+                  .filter(position => parseFloat(position.lpBalance) >= 0.001)
+                  .map((position) => (
                   <TableRow
                     key={position.poolAddress}
                     sx={{ '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.05)' }, cursor: 'pointer' }}
@@ -699,10 +701,14 @@ export default function AddLiquidityPage() {
                     Total:
                   </TableCell>
                   <TableCell align="right" sx={{ color: '#4caf50', fontWeight: 'bold', borderTop: '1px solid rgba(255, 255, 255, 0.2)' }}>
-                    ${allUserPositions.reduce((sum, pos) => sum + parseFloat(pos.dailyFees), 0).toFixed(2)}
+                    ${allUserPositions
+                      .filter(position => parseFloat(position.lpBalance) >= 0.001)
+                      .reduce((sum, pos) => sum + parseFloat(pos.dailyFees), 0).toFixed(2)}
                   </TableCell>
                   <TableCell align="right" sx={{ color: '#4caf50', fontWeight: 'bold', borderTop: '1px solid rgba(255, 255, 255, 0.2)' }}>
-                    ${allUserPositions.reduce((sum, pos) => sum + parseFloat(pos.totalFees), 0).toFixed(2)}
+                    ${allUserPositions
+                      .filter(position => parseFloat(position.lpBalance) >= 0.001)
+                      .reduce((sum, pos) => sum + parseFloat(pos.totalFees), 0).toFixed(2)}
                   </TableCell>
                 </TableRow>
               </TableBody>
