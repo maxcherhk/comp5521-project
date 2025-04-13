@@ -24,7 +24,10 @@ export async function POST(req) {
 		const tokenKey = `token${token[0]}`; // e.g., ALPHA => tokenA
 		const tokenAddress = addresses[tokenKey];
 		const tokenContract = new ethers.Contract(tokenAddress, abis.NewToken, signer);
-
+		const owner = await tokenContract.owner();
+		console.log("Signer address:", signer.address);
+		console.log("Token contract owner:", owner);
+		
 		const mintAmount = ethers.parseEther(amount.toString());
 		const tx = await tokenContract.mint(walletAddress, mintAmount);
 		await tx.wait();

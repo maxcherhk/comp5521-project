@@ -9,6 +9,10 @@ The Hardhat directory contains the contract scripts, token scripts, and the Open
 New terminal  
 > cd frontend  
 > npm install  
+> Create .env if missing  
+> STRIPE_SECRET_KEY=sk_test_51RD870IBisDm0c0SWt45p3mjynjmaccpQjXQi0xvqhQnJpDKMCUzdGV1QLszyp9aOZnjc6yuA83SD5pYYx2impiE00RBv5iPzl  
+> PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80  
+>     
 > npm run dev  
 
 **Step 2**
