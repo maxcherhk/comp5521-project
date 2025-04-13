@@ -34,7 +34,7 @@ contract Escrow is Ownable {
         return dealId;
     }
 
-    function releaseToSeller(bytes32 dealId) external onlyOwner {
+    function releaseToSeller(bytes32 dealId) external {
         Deal storage deal = deals[dealId];
         require(!deal.released, "Already released");
 

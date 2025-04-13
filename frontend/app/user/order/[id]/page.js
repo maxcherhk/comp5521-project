@@ -1,143 +1,107 @@
 "use client";
 
-import React, { useState } from "react";
-import { Box, Typography, Card, CardContent, Chip, Button, Divider, Grid } from "@mui/material";
-
-// Dummy order data (replace with actual API or smart contract data)
-const order = {
-	id: "1",
-	productName: "Vintage Camera",
-	productImage: "https://picsum.photos/id/26/250",
-	price: "0.12 ETH",
-	tokenType: "ALPHA",
-	status: "On Delivery", // Status can be "On Delivery", "Arrived", "Complete", "Disputed"
-	transactionHash: "0x1234abcd5678efgh9012ijkl3456mnop7890qrst",
-	orderDate: "2025-04-10",
-	sellerWallet: "0xAbC123...4567",
-	buyerWallet: "0xDeF456...7890",
-	description: "Classic 35mm film camera, great for collectors. Fully functional and comes with strap and case.",
-};
+import React, { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
+import { Box, Typography, Card, CardContent, Chip, Grid, Divider, Button } from "@mui/material";
+import { useWallet } from "../../../../context/WalletContext";
+import { ethers } from "ethers";
+import addresses from "@/utils/deployed-addresses.json";
+import abis from "@/utils/deployed-abis.json";
+import { getProductsWithContracts } from "@/utils/getProductsWithContracts";
 
 export default function OrderDetailPage() {
-	const [orderStatus, setOrderStatus] = useState(order.status);
+  const { id } = useParams();
+  const { provider } = useWallet();
+  const [order, setOrder] = useState(null);
+  const [isReleasing, setReleasing] = useState(false);
+  const products = getProductsWithContracts();
 
-	// Simulate smart contract interaction for confirming the product's arrival
-	const handleConfirmArrival = async () => {
-		try {
-			// Simulate smart contract call
-			console.log("Processing transaction to confirm arrival...");
-			// Example: await smartContract.confirmArrival(order.id);
-			setOrderStatus("Complete");
-			alert("Product confirmed as arrived. Tokens have been sent to the seller.");
-		} catch (error) {
-			console.error("Error confirming arrival:", error);
-			alert("Failed to confirm arrival. Please try again.");
-		}
-	};
+  useEffect(() => {
+    const fetchOrderDetails = async () => {
+		if (!provider) return;
+      try {
+        const signer = await provider.getSigner();
+        const escrowContract = new ethers.Contract(addresses.escrow, abis.Escrow, signer);
+        const deal = await escrowContract.deals(id);
 
-	// Simulate smart contract interaction for disputing the order
-	const handleDispute = async () => {
-		try {
-			// Simulate smart contract call
-			console.log("Processing transaction to dispute the order...");
-			// Example: await smartContract.raiseDispute(order.id);
-			setOrderStatus("Disputed");
-			alert("Dispute raised. The issue will be reviewed.");
-		} catch (error) {
-			console.error("Error raising dispute:", error);
-			alert("Failed to raise dispute. Please try again.");
-		}
-	};
+        const block = await provider.getBlock("latest");
+        const date = new Date(block.timestamp * 1000).toISOString().split("T")[0];
 
-	return (
-		<Box sx={{ p: 4 }}>
-			<Typography variant="h4" gutterBottom>
-				Order Details
-			</Typography>
-			<Divider sx={{ mb: 3 }} />
+        const matchedProduct = products.find(p => ethers.getAddress(p.tokenContract) === ethers.getAddress(deal.token) && p.sellerWallet.toLowerCase() === deal.seller.toLowerCase());
 
-			<Grid container spacing={4}>
-				<Grid item xs={12} md={6}>
-					<Card sx={{ borderRadius: 3 }}>
-						<img src={order.productImage} alt={order.productName} style={{ width: "100%", height: "auto", borderRadius: "12px" }} />
-					</Card>
-				</Grid>
+        const tokenMap = {
+          [ethers.getAddress(addresses.tokenA)]: "ALPHA",
+          [ethers.getAddress(addresses.tokenB)]: "BETA",
+          [ethers.getAddress(addresses.tokenC)]: "CHARLIE",
+          [ethers.getAddress(addresses.tokenD)]: "DELTA"
+        };
+        const tokenType = tokenMap[ethers.getAddress(deal.token)] || "Unknown";
 
-				<Grid item xs={12} md={6}>
-					<CardContent>
-						<Typography variant="h5" gutterBottom>
-							{order.productName}
-						</Typography>
-						<Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
-							{order.description}
-						</Typography>
+        setOrder({
+          id,
+          productName: matchedProduct?.name || "Purchased Item",
+          productImage: matchedProduct?.image || `https://picsum.photos/seed/${id}/100`,
+          price: ethers.formatEther(deal.amount),
+          tokenType,
+          status: deal.released ? "Complete" : "On Delivery",
+          transactionHash: "", // Optional: fetch with queryFilter if needed
+          orderDate: date
+        });
+      } catch (err) {
+        console.error("Failed to load order detail:", err);
+      }
+    };
+    if (provider) fetchOrderDetails();
+  }, [provider, id]);
 
-						<Typography variant="subtitle2">Price:</Typography>
-						<Typography variant="body1" sx={{ mb: 2 }}>
-							{order.price} ({order.tokenType})
-						</Typography>
+  const handleConfirmArrival = async () => {
+    setReleasing(true);
+    try {
+      const signer = await provider.getSigner();
+      const escrowContract = new ethers.Contract(addresses.escrow, abis.Escrow, signer);
+      const tx = await escrowContract.releaseToSeller(id);
+      await tx.wait();
+      alert("Token released to seller!");
+      setOrder(prev => ({ ...prev, status: "Complete" }));
+    } catch (err) {
+      console.error("Release failed:", err);
+      alert("Failed to release token to seller.");
+    } finally {
+      setReleasing(false);
+    }
+  };
 
-						<Typography variant="subtitle2">Transaction Hash:</Typography>
-						<Typography
-							variant="body2"
-							color="primary"
-							sx={{
-								wordBreak: "break-all",
-								mb: 2,
-								cursor: "pointer",
-								textDecoration: "underline",
-							}}
-							onClick={() => window.open(`https://etherscan.io/tx/${order.transactionHash}`, "_blank")}
-						>
-							{order.transactionHash}
-						</Typography>
+  if (!order) return <Typography sx={{ p: 4 }}>Loading order details...</Typography>;
 
-						<Typography variant="subtitle2">Order Date:</Typography>
-						<Typography variant="body1" sx={{ mb: 2 }}>
-							{order.orderDate}
-						</Typography>
-
-						<Typography variant="subtitle2">Seller Wallet:</Typography>
-						<Typography variant="body1" sx={{ mb: 2 }}>
-							{order.sellerWallet}
-						</Typography>
-
-						<Typography variant="subtitle2">Buyer Wallet:</Typography>
-						<Typography variant="body1" sx={{ mb: 2 }}>
-							{order.buyerWallet}
-						</Typography>
-
-						<Typography variant="subtitle2">Status:</Typography>
-						<Chip
-							label={orderStatus}
-							color={
-								orderStatus === "Complete"
-									? "success"
-									: orderStatus === "Arrived"
-									? "info"
-									: orderStatus === "On Delivery"
-									? "warning"
-									: orderStatus === "Disputed"
-									? "error"
-									: "default"
-							}
-							sx={{ mb: 3 }}
-						/>
-
-						{/* Buttons for actions based on status */}
-						{orderStatus === "On Delivery" && (
-							<Box>
-								<Button variant="contained" color="success" sx={{ mr: 2 }} onClick={handleConfirmArrival}>
-									Confirm Arrival
-								</Button>
-								<Button variant="contained" color="error" onClick={handleDispute}>
-									Raise Dispute
-								</Button>
-							</Box>
-						)}
-					</CardContent>
-				</Grid>
-			</Grid>
-		</Box>
-	);
+  return (
+    <Box sx={{ p: 4 }}>
+      <Typography variant="h4" gutterBottom>Order Detail</Typography>
+      <Divider sx={{ mb: 3 }} />
+  
+      <Grid container spacing={3}>
+        <Grid item xs={12} md={4}>
+          <img src={order.productImage} alt={order.productName} style={{ width: "100%", borderRadius: 12 }} />
+        </Grid>
+        <Grid item xs={12} md={8}>
+          <Card sx={{ borderRadius: 3 }}>
+            <CardContent>
+              <Typography variant="h5" gutterBottom>{order.productName}</Typography>
+              <Typography variant="body1" sx={{ mb: 1.5 }}>Deal ID: {order.id}</Typography>
+              <Typography variant="body1" sx={{ mb: 1.5 }}>Price: {order.price} {order.tokenType}</Typography>
+              <Typography variant="body1" sx={{ mb: 1.5 }}>Date: {order.orderDate}</Typography>
+              <Typography variant="body1" sx={{ mb: 1 }}>Status:</Typography>
+              <Chip label={order.status} color={order.status === "Complete" ? "success" : "warning"} sx={{ mb: 2 }} />
+              <Divider sx={{ mb: 2 }} />
+              {!order.status.includes("Complete") && (
+                <Button variant="contained" color="primary" onClick={handleConfirmArrival} sx={{ mt: 2 }} disabled={isReleasing}>
+                  {isReleasing ? "Processing..." : "Confirm Arrival"}
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+    </Box>
+  );
+  
 }

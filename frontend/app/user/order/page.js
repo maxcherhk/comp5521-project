@@ -39,6 +39,7 @@ export default function OrderListPage() {
 							tokenType: Object.keys(addresses).find(key => addresses[key] === token)?.replace("token", "") || token,
 							status: "On Delivery",
 							transactionHash: txHash,
+							dealId: dealId,
 							orderDate: date,
 						};
 					})
@@ -73,7 +74,7 @@ export default function OrderListPage() {
 									transform: "scale(1.02)",
 								},
 							}}
-							onClick={() => handleCardClick(order.id)}
+							onClick={() => handleCardClick(order.dealId)}
 						>
 							<CardContent>
 								<Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
