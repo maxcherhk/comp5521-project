@@ -15,41 +15,9 @@ import {
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import { useRouter } from "next/navigation";
+import { getProductsWithContracts } from "@/utils/getProductsWithContracts";
 
-const dummyProducts = [
-	{
-		id: 1,
-		name: "Vintage Camera",
-		image: "https://picsum.photos/id/26/250",
-		price: "200",
-		token: "ALPHA",
-		condition: "Lightly Used",
-	},
-	{
-		id: 2,
-		name: "Gaming Headset",
-		image: "https://picsum.photos/id/91/250",
-		price: "1000",
-		token: "BETA",
-		condition: "Brand New",
-	},
-	{
-		id: 3,
-		name: "Mechanical Keyboard",
-		image: "https://picsum.photos/id/119/250",
-		price: "150",
-		token: "CHARLIE",
-		condition: "Used",
-	},
-	{
-		id: 4,
-		name: "Used Smartphone",
-		image: "https://picsum.photos/250",
-		price: "600",
-		token: "DELTA",
-		condition: "Heavily Used",
-	},
-];
+const products = getProductsWithContracts();
 
 // Get MUI color based on condition
 const getConditionColor = (condition) => {
@@ -71,7 +39,7 @@ export default function MarketplacePage() {
 	const [search, setSearch] = useState("");
 	const router = useRouter();
 
-	const filteredProducts = dummyProducts.filter((product) => product.name.toLowerCase().includes(search.toLowerCase()));
+	const filteredProducts = products.filter((product) => product.name.toLowerCase().includes(search.toLowerCase()));
 
 	return (
 		<Box sx={{ p: 4 }}>
@@ -135,3 +103,6 @@ export default function MarketplacePage() {
 		</Box>
 	);
 }
+
+// Export shared product data for reuse
+export { products };

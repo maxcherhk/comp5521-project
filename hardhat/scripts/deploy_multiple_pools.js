@@ -1,46 +1,49 @@
-// Deploy script for setting up multiple liquidity pools
 const hre = require("hardhat");
 const fs = require("fs");
 const path = require("path");
 
 async function main() {
   console.log("Deploying multiple liquidity pool system...");
-  
-  // Deploy test tokens
+
+  // Deploy tokens
   const NewToken = await hre.ethers.getContractFactory("NewToken");
-  
+
   console.log("Deploying token A...");
   const tokenA = await NewToken.deploy("Alpha", "ALPHA");
   await tokenA.waitForDeployment();
-  console.log("Token A deployed at:", await tokenA.getAddress());
-  
+  const tokenAAddress = await tokenA.getAddress();
+  console.log("Token A deployed at:", tokenAAddress);
+
   console.log("Deploying token B...");
   const tokenB = await NewToken.deploy("Beta", "BETA");
   await tokenB.waitForDeployment();
-  console.log("Token B deployed at:", await tokenB.getAddress());
-  
+  const tokenBAddress = await tokenB.getAddress();
+  console.log("Token B deployed at:", tokenBAddress);
+
   console.log("Deploying token C...");
   const tokenC = await NewToken.deploy("Charlie", "CHARLIE");
   await tokenC.waitForDeployment();
-  console.log("Token C deployed at:", await tokenC.getAddress());
+  const tokenCAddress = await tokenC.getAddress();
+  console.log("Token C deployed at:", tokenCAddress);
 
   console.log("Deploying token D...");
   const tokenD = await NewToken.deploy("Delta", "DELTA");
   await tokenD.waitForDeployment();
-  console.log("Token D deployed at:", await tokenD.getAddress());
+  const tokenDAddress = await tokenD.getAddress();
+  console.log("Token D deployed at:", tokenDAddress);
 
   const [deployer] = await hre.ethers.getSigners();
   console.log("Using deployer:", deployer.address);
 
-  // Mint tokens to deployer
-  const amount = hre.ethers.parseEther("1000000"); // 1 million tokens
+  // Mint tokens
+  const amount = hre.ethers.parseEther("1000000");
   await tokenA.mint(deployer.address, amount);
   await tokenB.mint(deployer.address, amount);
   await tokenC.mint(deployer.address, amount);
   await tokenD.mint(deployer.address, amount);
-  console.log("✅ Minted 1M ALPHA, BETA, CHARLIE, DELTA to deployer.");
+  console.log("✅ Minted 1M tokens to deployer.");
 
-  // Deploy the factory
+  // Deploy PoolFactory
   console.log("Deploying Pool Factory...");
   const PoolFactory = await hre.ethers.getContractFactory("PoolFactory");
   const factory = await PoolFactory.deploy();
@@ -48,7 +51,7 @@ async function main() {
   const factoryAddress = await factory.getAddress();
   console.log("Pool Factory deployed at:", factoryAddress);
 
-  // Deploy the router
+  // Deploy Router
   console.log("Deploying Router...");
   const Router = await hre.ethers.getContractFactory("Router");
   const router = await Router.deploy(factoryAddress);
@@ -56,125 +59,66 @@ async function main() {
   const routerAddress = await router.getAddress();
   console.log("Router deployed at:", routerAddress);
 
-  // Create pools through the factory
-  console.log("Creating Token A - Token B pool...");
-  const tx1 = await factory.createPoolWithFee(
-    await tokenA.getAddress(),
-    await tokenB.getAddress(),
-    300
-  );
-  await tx1.wait();
-  
-  console.log("Creating Token B - Token C pool...");
-  const tx2 = await factory.createPoolWithFee(
-    await tokenB.getAddress(),
-    await tokenC.getAddress(),
-    200
-  );
-  await tx2.wait();
-  
-  console.log("Creating Token C - Token D pool...");
-  const tx3 = await factory.createPoolWithFee(
-    await tokenC.getAddress(),
-    await tokenD.getAddress(),
-    100
-  );
-  await tx3.wait();
+  // Deploy Escrow
+  console.log("Deploying Escrow...");
+  const Escrow = await hre.ethers.getContractFactory("Escrow");
+  const escrow = await Escrow.deploy(deployer.address); // ✅ Pass owner address
+  await escrow.waitForDeployment();
+  const escrowAddress = await escrow.getAddress();
+  console.log("Escrow deployed at:", escrowAddress);
 
-  console.log("Creating Token A - Token D pool...");
-  const tx4 = await factory.createPoolWithFee(
-    await tokenA.getAddress(),
-    await tokenD.getAddress(),
-    500
-  );
-  await tx4.wait();
+  // Create pools
+  await factory.createPoolWithFee(tokenAAddress, tokenBAddress, 300);
+  await factory.createPoolWithFee(tokenBAddress, tokenCAddress, 200);
+  await factory.createPoolWithFee(tokenCAddress, tokenDAddress, 100);
+  await factory.createPoolWithFee(tokenAAddress, tokenDAddress, 500);
 
-  // Get all pools
-  const pools = await factory.getAllPools();
-  console.log("All pools created:", pools);
+  const poolAB = await factory.findPool(tokenAAddress, tokenBAddress);
+  const poolBC = await factory.findPool(tokenBAddress, tokenCAddress);
+  const poolCD = await factory.findPool(tokenCAddress, tokenDAddress);
+  const poolAD = await factory.findPool(tokenAAddress, tokenDAddress);
 
-  // Get the A-B pool
-  const poolAB = await factory.findPool(
-    await tokenA.getAddress(),
-    await tokenB.getAddress()
-  );
-  console.log("Pool A-B:", poolAB);
-  
-  // Get the B-C pool
-  const poolBC = await factory.findPool(
-    await tokenB.getAddress(),
-    await tokenC.getAddress()
-  );
-  console.log("Pool B-C:", poolBC);
-  
-  // Get the C-D pool
-  const poolCD = await factory.findPool(
-    await tokenC.getAddress(),
-    await tokenD.getAddress()
-  );
-  console.log("Pool C-D:", poolCD);
-  
-  // Get the A-D pool
-  const poolAD = await factory.findPool(
-    await tokenA.getAddress(),
-    await tokenD.getAddress()
-  );
-  console.log("Pool A-D:", poolAD);
-  
-  console.log("Multiple pools deployment complete!");
+  console.log("✅ All pools created.");
 
-
-  // Write contract addresses to file
+  // Save addresses
   const addresses = {
-    tokenA: await tokenA.getAddress(),
-    tokenB: await tokenB.getAddress(),
-    tokenC: await tokenC.getAddress(),
-    tokenD: await tokenD.getAddress(),
-    poolAB: poolAB,
-    poolBC: poolBC,
-    poolCD: poolCD,
-    poolAD: poolAD,
-    factory: await factory.getAddress(),
-    router: await router.getAddress()
+    tokenA: tokenAAddress,
+    tokenB: tokenBAddress,
+    tokenC: tokenCAddress,
+    tokenD: tokenDAddress,
+    poolAB,
+    poolBC,
+    poolCD,
+    poolAD,
+    factory: factoryAddress,
+    router: routerAddress,
+    escrow: escrowAddress
   };
 
-  // Create utils directory if it doesn't exist
   const utilsPath = path.join(__dirname, "../../frontend/utils");
   if (!fs.existsSync(utilsPath)) {
     fs.mkdirSync(utilsPath, { recursive: true });
   }
 
-  // Write data to the file (creates the file if it doesn't exist)
-  fs.writeFileSync(path.join(utilsPath, "deployed-addresses.json"),
-  JSON.stringify(addresses, null, 2), { flag: 'w' }); // 'w' flag ensures the file is created or overwritten
-  console.log("\nContract addresses have been written to deployed-addresses.json");
+  fs.writeFileSync(path.join(utilsPath, "deployed-addresses.json"), JSON.stringify(addresses, null, 2), { flag: "w" });
+  console.log("✅ Addresses written to deployed-addresses.json");
 
-  // Export ABIs
-  const artifacts = {
-    NewToken: await hre.artifacts.readArtifact("NewToken"),
-    LPToken: await hre.artifacts.readArtifact("LPToken"),
-    Pool: await hre.artifacts.readArtifact("Pool"),
-    Router: await hre.artifacts.readArtifact("Router")
-  };
-  
+  // Export ABIs including Escrow
   const abis = {
-    NewToken: artifacts.NewToken.abi,
-    LPToken: artifacts.LPToken.abi,
-    Pool: artifacts.Pool.abi,
-    Router: artifacts.Router.abi
+    NewToken: (await hre.artifacts.readArtifact("NewToken")).abi,
+    LPToken: (await hre.artifacts.readArtifact("LPToken")).abi,
+    Pool: (await hre.artifacts.readArtifact("Pool")).abi,
+    Router: (await hre.artifacts.readArtifact("Router")).abi,
+    Escrow: (await hre.artifacts.readArtifact("Escrow")).abi // ✅ ADD THIS
   };
-  
-  // Write data to the file (creates the file if it doesn't exist)
-  fs.writeFileSync(path.join(utilsPath, "deployed-abis.json"),
-  JSON.stringify(abis, null, 2), { flag: 'w' }); // 'w' flag ensures the file is created or overwritten
-  console.log("\nABIs have been written to deployed-abis.json");
+
+  fs.writeFileSync(path.join(utilsPath, "deployed-abis.json"), JSON.stringify(abis, null, 2), { flag: "w" });
+  console.log("✅ ABIs written to deployed-abis.json");
 }
 
-// We recommend this pattern to be able to use async/await everywhere
-// and properly handle errors.
 main()
   .then(() => process.exit(0))
   .catch((error) => {
     console.error(error);
     process.exit(1);
-  }); 
+  });
