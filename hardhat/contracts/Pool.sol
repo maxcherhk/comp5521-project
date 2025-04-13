@@ -42,10 +42,13 @@ contract Pool is LPToken, ReentrancyGuard {
     );
 
     event Swapped(
-        address tokenIn,
-        uint256 indexed amountIn,
-        address tokenOut,
-        uint256 indexed amountOut
+        address indexed user,
+        address indexed tokenIn,
+        uint256 amountIn,
+        address indexed tokenOut,
+        uint256 amountOut,
+        uint256 fee,
+        uint256 timestamp
     );
 
     // Added event for pool creation
@@ -193,7 +196,7 @@ contract Pool is LPToken, ReentrancyGuard {
         tokenBalances[tokenIn] += amountInAfterFee;
         tokenBalances[tokenOut] -= amountOut;
 
-        emit Swapped(tokenIn, amountIn, tokenOut, amountOut);
+        emit Swapped(msg.sender, tokenIn, amountIn, tokenOut, amountOut, feeAmount, block.timestamp);
     }
 
     function getLPBalance(address user) external view returns (uint256) {
