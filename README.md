@@ -5,6 +5,46 @@ COMP5521 DeFi Group Project
 The front end is built using Next.js.  
 The Hardhat directory contains the contract scripts, token scripts, and the OpenZeppelin library. The project has completed the tutorial setup.
 
+## Running with Docker
+
+To run the application using Docker:
+
+1. Make sure you have [Docker](https://www.docker.com/products/docker-desktop/) and [Docker Compose](https://docs.docker.com/compose/install/) installed.
+
+2. Connect MetaMask to the Hardhat network (this will be needed to get your wallet address):
+   - Open MetaMask
+   - Add a custom network:
+     - RPC URL: http://localhost:8545
+     - Chain ID: 31337
+   - Copy your MetaMask wallet address
+
+3. Run the application with your environment variables:
+   ```bash
+   WALLET_ADDRESS=YOUR_METAMASK_WALLET_ADDRESS \
+   STRIPE_SECRET_KEY=YOUR_STRIPE_SECRET_KEY \
+   PRIVATE_KEY=YOUR_PRIVATE_KEY \
+   docker-compose up
+   ```
+   
+   Replace:
+   - `YOUR_METAMASK_WALLET_ADDRESS` with your actual wallet address from MetaMask
+   - `YOUR_STRIPE_SECRET_KEY` with your Stripe secret key (optional - default is provided)
+   - `YOUR_PRIVATE_KEY` with private key of hardhat provide account(optional - default is provided)
+
+   You can omit any variable to use the default value provided in the docker-compose.yml file.
+
+4. The services will start automatically:
+   - Frontend will be available at http://localhost:3000
+   - Hardhat node will be running at http://localhost:8545
+   - Tokens will be automatically transferred to your MetaMask wallet address
+
+5. To stop the application:
+   ```bash
+   docker-compose down
+   ```
+
+## Running Manually (Original Method)
+
 **Step 1**
 New terminal  
 > cd frontend  

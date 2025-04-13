@@ -9,14 +9,14 @@ async function main() {
 	const senderWallet = new ethers.Wallet(senderPrivateKey, provider);
 
 	// Replace with the address of the recipient account
-	const recipientAddress = "0xadF156f13968183836fD2d28a75f84CCB0e9475f"; // Your address (from MetaMask)
+	const recipientAddress = "${WALLET_ADDRESS}"; // Your address (from MetaMask)
 
 	// Amount to transfer (in Ether)
 	const amountInEther = "1000"; // 1 ETH
 	const amountInWei = ethers.parseEther(amountInEther);
 
 	// Send the transaction
-	console.log(`Sending  DF from ${senderWallet.address} to ...`);
+	console.log(`Sending ${amountInEther} DF from ${senderWallet.address} to ${recipientAddress}...`);
 	const tx = await senderWallet.sendTransaction({
 		to: recipientAddress,
 		value: amountInWei,

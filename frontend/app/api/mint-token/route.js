@@ -18,7 +18,7 @@ export async function POST(req) {
 			return new Response(JSON.stringify({ error: "Missing params" }), { status: 400 });
 		}
 
-		const provider = new ethers.JsonRpcProvider("http://127.0.0.1:8545");
+		const provider = new ethers.JsonRpcProvider(process.env.HARDHAT_URL || "http://127.0.0.1:8545");
 		const signer = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
 
 		const tokenKey = `token${token[0]}`; // e.g., ALPHA => tokenA

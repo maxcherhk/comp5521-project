@@ -3,7 +3,7 @@ const addresses = require("../../frontend/utils/deployed-addresses.json");
 
 async function main() {
   const [deployer] = await ethers.getSigners();
-  const recipientAddress = "0xadF156f13968183836fD2d28a75f84CCB0e9475f";
+  const recipientAddress = "${WALLET_ADDRESS}";
 
   const Alpha = await ethers.getContractAt("NewToken", addresses.tokenA, deployer);
   const Beta = await ethers.getContractAt("NewToken", addresses.tokenB, deployer);
@@ -13,16 +13,16 @@ async function main() {
   const amount = ethers.parseEther("500000");
 
   await Alpha.transfer(recipientAddress, amount);
-  console.log(`✅ Transferred  ALPHA to `);
+  console.log(`✅ Transferred ${amount} ALPHA to ${recipientAddress}`);
 
   await Beta.transfer(recipientAddress, amount);
-  console.log(`✅ Transferred  BETA to `);
+  console.log(`✅ Transferred ${amount} BETA to ${recipientAddress}`);
 
   await Gamma.transfer(recipientAddress, amount);
-  console.log(`✅ Transferred  CHARLIE to `);
+  console.log(`✅ Transferred ${amount} CHARLIE to ${recipientAddress}`);
 
   await Delta.transfer(recipientAddress, amount);
-  console.log(`✅ Transferred  DELTA to `);
+  console.log(`✅ Transferred ${amount} DELTA to ${recipientAddress}`);
 
   // ✅ Safe balance check
   const balanceAlpha = await Alpha.balanceOf(recipientAddress);

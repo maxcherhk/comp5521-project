@@ -1,0 +1,34 @@
+# Git
+.git
+.gitignore
+
+# Node
+node_modules
+**/node_modules
+npm-debug.log
+
+# Hardhat
+**/artifacts
+**/cache
+**/typechain-types
+
+# Next.js
+**/.next
+**/out
+
+# Environment
+.env
+**/.env
+.env.local
+**/.env.local
+
+# Docker
+.dockerignore
+Dockerfile
+docker-compose.yml
+
+# Misc
+.DS_Store
+**/.DS_Store
+README.md
+**/README.md 
