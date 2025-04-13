@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  defi-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - TEST_WALLET_ADDRESS=${TEST_WALLET_ADDRESS}
+        - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+    ports:
+      - "3000:3000"  # Frontend
+      - "8545:8545"  # Hardhat node
+    volumes:
+      # Mount these directories to preserve state between restarts
+      - ./frontend/node_modules:/app/frontend/node_modules
+      - ./hardhat/node_modules:/app/hardhat/node_modules
+      - ./hardhat/artifacts:/app/hardhat/artifacts
+      - ./hardhat/cache:/app/hardhat/cache
+    environment:
+      - NODE_ENV=development
+    restart: unless-stopped 
