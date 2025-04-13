@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useEffect } from "react";
 import {
 	Box,
 	Button,
@@ -16,9 +17,15 @@ const { getAllTokens } = require("../../utils/token-address");
 
 const MarketSwapModal = ({ open, onClose, tokenType, exchangeRate, productPrice, userBalance, onTokenSelect }) => {
 	const tokens = getAllTokens();
-	const [selectedToken, setSelectedToken] = useState(tokens[0]?.name || ""); // Default to the first token
+	const [selectedToken, setSelectedToken] = useState(tokens[0]?.name==tokenType?tokens[1]?.name:tokens[0]?.name || "");
+	const [selectedBalance, setSelectedBalance] = useState("0");
+	
+	useEffect(() => {
+		if (selectedToken && userBalance) {
+			setSelectedBalance(userBalance[selectedToken] || "0");
+		}
+	}, [selectedToken, userBalance]);
 
-	// Calculate the input amount based on the fixed output (productPrice) and exchange rate
 	const calculateInputAmount = () => {
 		return (parseFloat(productPrice) / exchangeRate).toFixed(4);
 	};
@@ -30,12 +37,14 @@ const MarketSwapModal = ({ open, onClose, tokenType, exchangeRate, productPrice,
 	};
 
 	const handleTokenChange = (event) => {
-		setSelectedToken(event.target.value);
-		// onTokenSelect(event.target.value); // Notify parent of token selection
+		const token = event.target.value;
+		setSelectedToken(token);
+		setSelectedBalance(userBalance[token] || "0");
 	};
+	
 
 	const inputAmount = calculateInputAmount();
-	const isInsufficientBalance = parseFloat(userBalance) < parseFloat(inputAmount);
+	const isInsufficientBalance = parseFloat(userBalance[tokenType]) < parseFloat(inputAmount);
 
 	return (
 		<Modal open={open} onClose={onClose}>
@@ -64,13 +73,16 @@ const MarketSwapModal = ({ open, onClose, tokenType, exchangeRate, productPrice,
 							<InputLabel id="token-select-label">Select Token</InputLabel>
 							<Select labelId="token-select-label" value={selectedToken} onChange={handleTokenChange} fullWidth>
 								{tokens
-									.filter((token) => !(tokenType === "ALPHA" && token.name === "ALPHA")) // Exclude ALPHA if output is ALPHA
+									.filter((token) => token.name !== tokenType)
 									.map((token) => (
 										<MenuItem key={token.name} value={token.name}>
 											{token.name}
 										</MenuItem>
 									))}
 							</Select>
+							<Typography variant="body2" sx={{ mt: 1, mb: 1, color: "gray" }}>
+								Balance: {selectedBalance}
+							</Typography>
 						</FormControl>
 					</Grid>
 					<Grid item xs={12}>

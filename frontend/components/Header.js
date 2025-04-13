@@ -136,8 +136,7 @@ export default function Header() {
 								}}
 							>
 								<MenuItem onClick={() => router.push("/user/wallet")}>View Wallet Details</MenuItem>
-								<MenuItem onClick={() => alert("View Transactions")}>View Transactions</MenuItem>
-								<MenuItem onClick={() => alert("View Selling")}>View Selling</MenuItem>
+								<MenuItem onClick={() => alert("Selling - Coming soon")}>View Selling</MenuItem>
 								<MenuItem onClick={() => router.push("/user/order")}>View Orders</MenuItem>
 								<MenuItem onClick={disconnectWallet}>Disconnect</MenuItem>
 							</Menu>

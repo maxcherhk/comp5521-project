@@ -9,6 +9,7 @@ import { getProductsWithContracts } from "@/utils/getProductsWithContracts";
 import { ethers } from "ethers";
 import addresses from "@/utils/deployed-addresses.json";
 import abis from "@/utils/deployed-abis.json";
+import { useRouter } from "next/navigation";
 
 const getConditionColor = (condition) => {
   switch (condition.toLowerCase()) {
@@ -21,17 +22,17 @@ const getConditionColor = (condition) => {
 };
 
 export default function ProductDetailPage() {
+  const router = useRouter();
   const { id } = useParams();
   const products = getProductsWithContracts();
   const product = products.find((p) => p.id === parseInt(id));
 
-  const { isWalletConnected, provider, balance0 } = useWallet();
+  const { isWalletConnected, provider, balances } = useWallet();
   const [isSwapModalOpen, setSwapModalOpen] = useState(false);
   const [isConfirmOpen, setConfirmOpen] = useState(false);
   const [isProcessing, setProcessing] = useState(false);
   const [txHash, setTxHash] = useState(null);
   const [blockNumber, setBlockNumber] = useState(null);
-
 
   const handleOpenSwapModal = () => setSwapModalOpen(true);
   const handleCloseSwapModal = () => setSwapModalOpen(false);
@@ -108,7 +109,9 @@ export default function ProductDetailPage() {
           <Button variant="contained" color="primary" size="large" sx={{ mr: 2 }} onClick={handleBuyClick} disabled={isProcessing}>
             Buy with {product.tokenType}
           </Button>
-          <Button variant="contained" onClick={handleOpenSwapModal} color="secondary" size="large">Swap to Buy</Button>
+          <Button variant="contained" color="secondary" size="large" onClick={handleOpenSwapModal}>
+			Swap to buy
+		  </Button>
 		  {txHash && (
 			<Box sx={{ mt: 3, p: 2, backgroundColor: "#1e1e1e", borderRadius: 2 }}>
 				<Typography variant="subtitle1" sx={{ color: "white", fontWeight: 600, mb: 1 }}>
@@ -140,7 +143,7 @@ export default function ProductDetailPage() {
         tokenType={product.tokenType}
         exchangeRate={0.05}
         productPrice={product.price}
-        userBalance={balance0}
+        userBalance={balances}
       />
 
       <Dialog open={isConfirmOpen} onClose={() => setConfirmOpen(false)}>
