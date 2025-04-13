@@ -71,6 +71,20 @@ export default function OrderDetailPage() {
     }
   };
 
+  const handleDispute = async () => {
+    try {
+      const signer = await provider.getSigner();
+      const escrowContract = new ethers.Contract(addresses.escrow, abis.Escrow, signer);
+      const tx = await escrowContract.disputeDeal(id);
+      await tx.wait();
+      alert("Dispute raised successfully.");
+      setOrder(prev => ({ ...prev, status: "Disputed" }));
+    } catch (error) {
+      console.error("Error raising dispute:", error);
+      alert("Failed to raise dispute. Please try again.");
+    }
+  };
+
   if (!order) return <Typography sx={{ p: 4 }}>Loading order details...</Typography>;
 
   return (
@@ -90,12 +104,28 @@ export default function OrderDetailPage() {
               <Typography variant="body1" sx={{ mb: 1.5 }}>Price: {order.price} {order.tokenType}</Typography>
               <Typography variant="body1" sx={{ mb: 1.5 }}>Date: {order.orderDate}</Typography>
               <Typography variant="body1" sx={{ mb: 1 }}>Status:</Typography>
-              <Chip label={order.status} color={order.status === "Complete" ? "success" : "warning"} sx={{ mb: 2 }} />
+              <Chip
+                label={order.status}
+                color={
+                  order.status === "Complete"
+                    ? "success"
+                    : order.status === "Disputed"
+                    ? "error"
+                    : "warning"
+                }
+                sx={{ mb: 2 }}
+              />
               <Divider sx={{ mb: 2 }} />
-              {!order.status.includes("Complete") && (
+              {!["Complete", "Disputed"].includes(order.status) && (
+                <>
                 <Button variant="contained" color="primary" onClick={handleConfirmArrival} sx={{ mt: 2 }} disabled={isReleasing}>
                   {isReleasing ? "Processing..." : "Confirm Arrival"}
                 </Button>
+                
+                <Button variant="contained" color="error" sx={{ mt: 2, ml:2 }} onClick={handleDispute}>
+                  Raise Dispute
+                </Button>
+                </>
               )}
             </CardContent>
           </Card>

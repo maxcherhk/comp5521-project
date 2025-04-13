@@ -15,6 +15,14 @@ export default function OrderListPage() {
 	const [orders, setOrders] = useState([]);
 	const products = getProductsWithContracts();
 	console.log("Products:", products);
+
+	 const tokenMap = {
+		[ethers.getAddress(addresses.tokenA)]: "ALPHA",
+		[ethers.getAddress(addresses.tokenB)]: "BETA",
+		[ethers.getAddress(addresses.tokenC)]: "CHARLIE",
+		[ethers.getAddress(addresses.tokenD)]: "DELTA"
+	};
+
 	useEffect(() => {
 		const fetchOrders = async () => {
 			try {
@@ -36,7 +44,7 @@ export default function OrderListPage() {
 							productName: product?.name || "Purchased Item",
 							productImage: product?.image || `https://picsum.photos/id/100`,
 							price: ethers.formatEther(amount),
-							tokenType: Object.keys(addresses).find(key => addresses[key] === token)?.replace("token", "") || token,
+							tokenType: tokenMap[ethers.getAddress(token)] || "Unknown",
 							status: "On Delivery",
 							transactionHash: txHash,
 							dealId: dealId,
@@ -89,7 +97,7 @@ export default function OrderListPage() {
 
 								<Typography variant="subtitle2">Price:</Typography>
 								<Typography variant="body1" sx={{ mb: 2 }}>
-									{order.price} ({order.tokenType})
+									{order.price} {order.tokenType}
 								</Typography>
 
 								<Typography variant="subtitle2">Transaction Hash:</Typography>
