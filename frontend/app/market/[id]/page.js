@@ -144,6 +144,7 @@ export default function ProductDetailPage() {
         exchangeRate={0.05}
         productPrice={product.price}
         userBalance={balances}
+		provider={provider}
       />
 
       <Dialog open={isConfirmOpen} onClose={() => setConfirmOpen(false)}>
