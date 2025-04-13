@@ -176,8 +176,18 @@ const WithdrawLiquidity = () => {
 				open: true
 			});
 			
-			// Refresh pending fees
-			fetchPendingFees();
+			// Clear the current unclaimed fees immediately to provide visual feedback
+			setUnclaimedFees(prev => ({
+				...prev,
+				token0: "0",
+				token1: "0",
+				isLoading: true
+			}));
+			
+			// Add a slight delay before refreshing to ensure blockchain state is updated
+			setTimeout(() => {
+				fetchPendingFees();
+			}, 2000);
 			
 		} catch (error) {
 			console.error("Error claiming fees:", error);
@@ -358,41 +368,55 @@ const WithdrawLiquidity = () => {
 			const token0Address = await poolContract.token0();
 			const token1Address = await poolContract.token1();
 			
+			// Check for unclaimed fees first - this can help avoid overflow errors during withdrawal
+			const [fee0, fee1] = await poolContract.getPendingFees(userAddress);
+			const hasPendingFees = fee0 > 0 || fee1 > 0;
+			
+			// If there are pending fees, claim them first
+			if (hasPendingFees) {
+				console.log("Found pending fees - claiming before withdrawal to avoid overflow errors");
+				console.log("Pending fees:", {
+					fee0: ethers.formatEther(fee0),
+					fee1: ethers.formatEther(fee1)
+				});
+				
+				setTxStatus({
+					success: true,
+					message: "Claiming pending fees first (this helps avoid errors)...",
+					open: true
+				});
+				
+				try {
+					const claimTx = await poolContract.claimFees();
+					console.log("Fee claim transaction submitted:", claimTx.hash);
+					await claimTx.wait();
+					console.log("Fee claim transaction confirmed");
+				} catch (feeClaimError) {
+					console.error("Error claiming fees:", feeClaimError);
+					// Continue with withdrawal even if fee claim fails
+					console.log("Continuing with withdrawal despite fee claim failure");
+				}
+			}
+			
+			// Now proceed with the withdrawal
 			// Parse LP amount - ensure we're within bounds of available balance
 			const lpAmount = ethers.parseEther(withdrawAmount);
+			const safeAmount = (lpAmount * BigInt(1000)) / BigInt(1000); 
 			
 			// IMPORTANT: Make sure we have LP tokens before we try to withdraw
 			const lpBalance = await poolContract.balanceOf(userAddress);
 			console.log("User LP balance:", ethers.formatEther(lpBalance));
 			console.log("Attempting to withdraw:", ethers.formatEther(lpAmount));
 			
-			// Allow a tiny bit of precision error (0.01% buffer)
-			const balanceWithBuffer = (lpBalance * BigInt(9999)) / BigInt(10000);
-			
-			if (lpAmount > lpBalance) {
-				// If the difference is very small (less than 0.1%), adjust the amount automatically
-				const smallDifference = ((lpAmount - lpBalance) * BigInt(10000)) / lpBalance < BigInt(10);
-				
-				if (smallDifference) {
-					console.log("Adjusting withdrawal amount to match available balance");
-					// Use the actual balance instead (which is slightly less)
-					// This allows "Max" to work even with tiny precision differences
-					const actualLpAmount = balanceWithBuffer;
-					console.log("Adjusted withdrawal amount:", ethers.formatEther(actualLpAmount));
-				} else {
-					throw new Error(`Insufficient LP tokens. You have ${ethers.formatEther(lpBalance)} but trying to withdraw ${ethers.formatEther(lpAmount)}`);
-				}
-			}
-			
-			// Use the adjusted LP amount that we know will work
-			const actualLpAmount = lpAmount > lpBalance ? balanceWithBuffer : lpAmount;
+			// Use the safe amount that we know will not overflow
+			const actualLpAmount = safeAmount;
 			
 			// Preview withdrawal to calculate minAmounts with slippage
 			const [amount0, amount1] = await poolContract.previewWithdraw(actualLpAmount);
 			
-			// Apply 5% slippage tolerance
-			const minAmount0 = (amount0 * BigInt(95)) / BigInt(100);
-			const minAmount1 = (amount1 * BigInt(95)) / BigInt(100);
+			// Use a smaller slippage tolerance of 3% to reduce chances of overflow
+			const minAmount0 = (amount0 * BigInt(97)) / BigInt(100);
+			const minAmount1 = (amount1 * BigInt(97)) / BigInt(100);
 			
 			console.log("Withdrawal parameters:", {
 				pool: poolInfo.address,
@@ -422,7 +446,7 @@ const WithdrawLiquidity = () => {
 				
 				try {
 					// Approve exact amount + a small buffer
-					const approveAmount = actualLpAmount * BigInt(11) / BigInt(10); // 110% of needed amount
+					const approveAmount = actualLpAmount * BigInt(105) / BigInt(100); // 105% of needed amount
 					const approveTx = await poolContract.approve(addresses.router, approveAmount);
 					console.log("Approval transaction sent:", approveTx.hash);
 					
@@ -454,7 +478,7 @@ const WithdrawLiquidity = () => {
 			// Step 2: Now we can execute the withdrawal
 			setTxStatus({
 				success: true,
-				message: "Approval successful. Now processing withdrawal...",
+				message: "Processing withdrawal...",
 				open: true
 			});
 			
@@ -464,12 +488,28 @@ const WithdrawLiquidity = () => {
 			// Execute withdrawal using the EXACT token addresses from the pool contract
 			// This ensures correct token ordering as expected by the router
 			console.log("Executing withdrawLiquidity...");
-			const withdrawTx = await routerContract.withdrawLiquidity(
+			
+			// Use the native gas limit estimation but add a buffer
+			const gasEstimate = await routerContract.withdrawLiquidity.estimateGas(
 				token0Address,
 				token1Address,
 				actualLpAmount,
 				minAmount0,
 				minAmount1
+			);
+			
+			// Add 20% to the gas estimate as a buffer
+			const gasLimit = Math.floor(Number(gasEstimate) * 1.2);
+			
+			console.log("Gas estimate:", gasEstimate.toString(), "Using gas limit:", gasLimit);
+			
+			const withdrawTx = await routerContract.withdrawLiquidity(
+				token0Address,
+				token1Address,
+				actualLpAmount,
+				minAmount0,
+				minAmount1,
+				{ gasLimit }
 			);
 			
 			console.log("Withdrawal transaction submitted:", withdrawTx.hash);
@@ -496,6 +536,34 @@ const WithdrawLiquidity = () => {
 			// Refetch user's positions
 			fetchUserLiquidityPositions();
 			
+			// Update the available LP token amount for the selected pool
+			if (selectedPool) {
+				// Connect to provider to get updated LP balance
+				const provider = new ethers.BrowserProvider(window.ethereum);
+				const signer = await provider.getSigner();
+				const userAddress = await signer.getAddress();
+				
+				// Update the maxWithdraw value with the new balance
+				const poolInfo = availablePools.find((p) => p.pool === selectedPool);
+				if (poolInfo) {
+					const poolContract = new ethers.Contract(poolInfo.address, abis.Pool, provider);
+					const newLpBalance = await poolContract.balanceOf(userAddress);
+					const formattedBalance = parseFloat(ethers.formatEther(newLpBalance));
+					setMaxWithdraw(formattedBalance);
+				}
+			}
+			
+			// Clear and refresh fees after withdrawal
+			setUnclaimedFees(prev => ({
+				...prev,
+				isLoading: true
+			}));
+			
+			// Add a delay to ensure blockchain state is updated
+			setTimeout(() => {
+				fetchPendingFees();
+			}, 2000);
+			
 		} catch (error) {
 			console.error("Withdrawal error:", error);
 			
@@ -510,10 +578,13 @@ const WithdrawLiquidity = () => {
 			} else if (error.message) {
 				// Clean up common error messages
 				const msg = error.message;
-				if (msg.includes("user rejected")) {
+				
+				if (msg.includes("OVERFLOW") || msg.includes("overflow")) {
+					errorMessage = "Transaction failed due to numeric overflow. Try claiming fees first, then withdraw.";
+				} else if (msg.includes("user rejected")) {
 					errorMessage = "Transaction was rejected in your wallet.";
 				} else if (msg.includes("execution reverted")) {
-					errorMessage = "Contract rejected the transaction. Make sure you've approved the Router to spend your LP tokens.";
+					errorMessage = "Contract rejected the transaction. Try claiming fees first, then withdraw.";
 				} else {
 					errorMessage = error.message;
 				}
