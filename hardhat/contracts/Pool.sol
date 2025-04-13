@@ -285,8 +285,11 @@ contract Pool is LPToken, ReentrancyGuard {
         uint256 userLpBalance = balanceOf(user);
         if (userLpBalance == 0) return (0, 0);
         
-        pendingFee0 = (userLpBalance * feePerShare0) / FEE_PRECISION - userFeeDebt0[user];
-        pendingFee1 = (userLpBalance * feePerShare1) / FEE_PRECISION - userFeeDebt1[user];
+        uint256 earned0 = (userLpBalance * feePerShare0) / FEE_PRECISION;
+        uint256 earned1 = (userLpBalance * feePerShare1) / FEE_PRECISION;
+        
+        pendingFee0 = earned0 > userFeeDebt0[user] ? earned0 - userFeeDebt0[user] : 0;
+        pendingFee1 = earned1 > userFeeDebt1[user] ? earned1 - userFeeDebt1[user] : 0;
         
         return (pendingFee0, pendingFee1);
     }
