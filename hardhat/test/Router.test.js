@@ -966,10 +966,10 @@ describe("Router Contract", function () {
       const [fee0_2, fee2_2] = await pool2.getPendingFees(user.address);
       
       // Log the values for debugging
-      console.log("Direct pool query fees:", {
-        pool1: { fee0: fee0_1.toString(), fee1: fee1_1.toString() },
-        pool2: { fee0: fee0_2.toString(), fee2: fee2_2.toString() }
-      });
+      // console.log("Direct pool query fees:", {
+      //   pool1: { fee0: fee0_1.toString(), fee1: fee1_1.toString() },
+      //   pool2: { fee0: fee0_2.toString(), fee2: fee2_2.toString() }
+      // });
       
       // Call the getPendingFeesFromPools function
       const tokenPairs = [
@@ -980,18 +980,18 @@ describe("Router Contract", function () {
       const results = await router.getPendingFeesFromPools(tokenPairs, user.address);
       
       // Log the results
-      console.log("Router query results:", {
-        pool1: { 
-          pool: results[0].pool,
-          fee0: results[0].fee0.toString(), 
-          fee1: results[0].fee1.toString() 
-        },
-        pool2: { 
-          pool: results[1].pool,
-          fee0: results[1].fee0.toString(), 
-          fee1: results[1].fee1.toString() 
-        }
-      });
+      // console.log("Router query results:", {
+      //   pool1: { 
+      //     pool: results[0].pool,
+      //     fee0: results[0].fee0.toString(), 
+      //     fee1: results[0].fee1.toString() 
+      //   },
+      //   pool2: { 
+      //     pool: results[1].pool,
+      //     fee0: results[1].fee0.toString(), 
+      //     fee1: results[1].fee1.toString() 
+      //   }
+      // });
       
       // Verify the basics of the results
       expect(results.length).to.equal(2);
@@ -1029,10 +1029,10 @@ describe("Router Contract", function () {
       const results = await router.getPendingFeesFromPools(tokenPairs, user.address);
       
       // Log for debugging
-      console.log("Non-existent pool test results:", {
-        existingPool: { fee0: results[0].fee0.toString(), fee1: results[0].fee1.toString() },
-        nonExistentPool: { pool: results[1].pool, fee0: results[1].fee0.toString(), fee1: results[1].fee1.toString() }
-      });
+      // console.log("Non-existent pool test results:", {
+      //   existingPool: { fee0: results[0].fee0.toString(), fee1: results[0].fee1.toString() },
+      //   nonExistentPool: { pool: results[1].pool, fee0: results[1].fee0.toString(), fee1: results[1].fee1.toString() }
+      // });
       
       // Verify the results
       expect(results.length).to.equal(2);
@@ -1058,11 +1058,11 @@ describe("Router Contract", function () {
       );
       
       // Log for debugging
-      console.log("No LP tokens test results:", {
-        pool: results[0].pool,
-        fee0: results[0].fee0.toString(),
-        fee1: results[0].fee1.toString()
-      });
+      // console.log("No LP tokens test results:", {
+      //   pool: results[0].pool,
+      //   fee0: results[0].fee0.toString(),
+      //   fee1: results[0].fee1.toString()
+      // });
       
       // Verify the results
       expect(results.length).to.equal(1);
