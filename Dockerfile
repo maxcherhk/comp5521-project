@@ -27,11 +27,9 @@ RUN npm install
 
 # Copy the rest of the application
 WORKDIR /app
+# Exclude .git directory during copy
+RUN echo ".git" > .dockerignore
 COPY . .
-
-# Build frontend
-WORKDIR /app/frontend
-RUN npm run build
 
 # Expose ports
 EXPOSE 3000 8545

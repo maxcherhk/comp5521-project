@@ -1,5 +1,6 @@
 #!/bin/bash
 set -e
+source .env
 
 # Function to start a service in a new terminal
 start_service() {
@@ -33,8 +34,12 @@ sleep 1
 start_service "hardhat" "npx hardhat run scripts/add-liquidity.js --network localhost"
 sleep 1
 
-# Start frontend
-start_service "frontend" "npm run start"
+# Skip the build for now and directly start in dev mode
+# Using dev mode will help debug the Html import issue
+cd frontend
+npm run dev &
+cd ..
+echo "Frontend started in development mode..."
 
 # Keep container running
 echo "All services started! Container is now running..."
