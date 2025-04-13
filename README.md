@@ -11,16 +11,22 @@ The Hardhat directory contains the contract scripts, token scripts, and the Open
 - Docker and Docker Compose installed on your machine
 
 **Steps**
-1. Build and start the containers:
+1. Create a `.env` file in the project root with the following variables:
+   ```
+   TEST_WALLET_ADDRESS=your_wallet_address
+   STRIPE_SECRET_KEY=your_stripe_key
+   ```
+
+2. Build and start the containers:
    ```
    docker-compose up --build
    ```
 
-2. Access the application:
+3. Access the application:
    - Frontend: http://localhost:3000
    - Hardhat node: http://localhost:8545
 
-3. Connect MetaMask:
+4. Connect MetaMask:
    - Add a custom network > RPC URL: http://localhost:8545 > Chain ID: 31337
    - Import tokens as described in Step 6 below
 
