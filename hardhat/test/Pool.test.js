@@ -86,7 +86,7 @@ describe("Pool Contract", function () {
       // Check event emission
       await expect(tx)
         .to.emit(pool, "AddedLiquidity")
-        .withArgs(amount0, token0.getAddress(), amount0, token1.getAddress(), amount0 * 2n);
+        .withArgs(amount0, await pool.token0(), amount0, await pool.token1(), amount0 * 2n);
     });
 
     it("should add liquidity proportionally when pool has reserves", async function () {
@@ -111,7 +111,7 @@ describe("Pool Contract", function () {
       // Check event
       await expect(tx)
         .to.emit(pool, "AddedLiquidity")
-        .withArgs(expectedLP, token0.getAddress(), addAmount0, token1.getAddress(), addAmount0*2n);
+        .withArgs(expectedLP, await pool.token0(), addAmount0, await pool.token1(), addAmount0*2n);
     });
 
     it("should revert when adding zero liquidity", async function () {
@@ -138,7 +138,7 @@ describe("Pool Contract", function () {
       // Check event emission
       await expect(tx)
         .to.emit(pool, "AddedLiquidity")
-        .withArgs(expectedLP, token0.getAddress(), amount1 / 2n, token1.getAddress(), amount1);
+        .withArgs(expectedLP, await pool.token0(), amount1 / 2n, await pool.token1(), amount1);
     });
 
     it("should add liquidity proportionally when pool has reserves", async function () {
@@ -163,7 +163,7 @@ describe("Pool Contract", function () {
       // Check event
       await expect(tx)
         .to.emit(pool, "AddedLiquidity")
-        .withArgs(expectedLP, token0.getAddress(), ethers.parseEther("50"), token1.getAddress(), addAmount1);
+        .withArgs(expectedLP, await pool.token0(), ethers.parseEther("50"), await pool.token1(), addAmount1);
     });
 
     it("should revert when adding zero liquidity", async function () {
@@ -199,7 +199,7 @@ describe("Pool Contract", function () {
       // Check event
       await expect(tx)
         .to.emit(pool, "Swapped")
-        .withArgs(token0.getAddress(), swapAmount, token1.getAddress(), expectedOutput);
+        .withArgs(user.address, await pool.token0(), swapAmount, await pool.token1(), expectedOutput, 0, await ethers.provider.getBlock('latest').then(b => b.timestamp));
     });
 
     it("should revert for invalid token pairs", async function () {
