@@ -15,6 +15,7 @@ The Hardhat directory contains the contract scripts, token scripts, and the Open
    ```
    TEST_WALLET_ADDRESS=your_wallet_address
    STRIPE_SECRET_KEY=your_stripe_key
+   PRIVATE_KEY=your_stripe_private_key
    ```
 
 2. Build and start the containers:
